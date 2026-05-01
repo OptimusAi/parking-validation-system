@@ -1,0 +1,1885 @@
+{
+  "info": {
+    "_postman_id": "tms-parking-validation-v3",
+    "name": "TMS Parking Validation",
+    "description": "## TMS Parking Validation API\n\n### Token-Switching Login Flow\n\nThe TMS login is a **two-step token switch** — the client never holds an OAuth token directly.\n\n**Server-side flow on `POST /api/auth/login`:**\n1. Backend calls the OAuth server (password grant) with the supplied credentials.\n2. Validates the OAuth JWT signature using the RSA public key (`tms-jwt-pub.jks`).\n3. **Upserts** a `login` row — creates on first login, updates `last_login_date` / `gtoken` / `email` on subsequent logins.\n4. Loads `role`, `tenantId`, `clientId`, `subTenantId` from the `users` table.\n5. Signs a **new TMS-internal HMAC-SHA256 JWT** embedding the full tenant context.\n6. Returns the internal JWT as `accessToken` — the raw OAuth token is **never** sent to the client.\n\n### Quick Start\n1. Set the `password` variable (and optionally `oauthBaseUrl` / `username`).\n2. **Run Login** — `accessToken`, `refreshToken`, `userId`, `role`, `tenantId`, `clientId`, `subTenantId` are auto-saved.\n3. All protected requests inherit `Bearer {{accessToken}}` from the collection auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string",
+      "description": "TMS backend base URL"
+    },
+    {
+      "key": "oauthBaseUrl",
+      "value": "http://localhost:9090",
+      "type": "string",
+      "description": "OAuth server base URL (server-side only — for reference)"
+    },
+    {
+      "key": "username",
+      "value": "venu.kannuri@optimus-ai.com",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "string",
+      "description": "Set this before running Login"
+    },
+    {
+      "key": "oauthBearerToken",
+      "value": "",
+      "type": "string",
+      "description": "Set to your OAuth RS256 token for MODE 1 login. Leave empty for MODE 2 (username/password)."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "TMS-internal HMAC-SHA256 JWT — set by Login"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string",
+      "description": "OAuth refresh token — set by Login"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "Decoded from JWT sub claim"
+    },
+    {
+      "key": "role",
+      "value": "",
+      "type": "string",
+      "description": "Decoded from JWT role claim"
+    },
+    {
+      "key": "tenantId",
+      "value": "",
+      "type": "string",
+      "description": "Decoded from JWT tenantId claim"
+    },
+    {
+      "key": "clientId",
+      "value": "",
+      "type": "string",
+      "description": "Decoded from JWT clientId claim"
+    },
+    {
+      "key": "subTenantId",
+      "value": "",
+      "type": "string",
+      "description": "Decoded from JWT subTenantId claim"
+    },
+    {
+      "key": "zoneId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "linkId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "linkToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "validationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reportJobId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "quotaConfigId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "Authentication endpoints.\n\nImplements the **OAuth2 password-grant → TMS internal token switching** flow.\nThe OAuth server (`{{oauthBaseUrl}}`) is called server-side — the client only receives a TMS-internal HMAC-SHA256 JWT.",
+      "item": [
+        {
+          "name": "Login  (OAuth → TMS token switch)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Detect login mode:",
+                  "// MODE 1 (old-code flow): set collection variable 'oauthBearerToken' to your OAuth RS256 token",
+                  "//         → request will send it as Authorization: Bearer header, no body needed",
+                  "// MODE 2 (password flow): leave 'oauthBearerToken' empty",
+                  "//         → request will send {username, password} body",
+                  "const oauthToken = pm.collectionVariables.get('oauthBearerToken');",
+                  "if (oauthToken) {",
+                  "    pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + oauthToken });",
+                  "    pm.request.body.raw = '';",
+                  "    console.log('MODE 1: OAuth Bearer token login (old-code flow)');",
+                  "} else {",
+                  "    pm.request.headers.remove('Authorization');",
+                  "    console.log('MODE 2: Username/password login');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Has accessToken (TMS internal JWT)', () => {",
+                  "    pm.expect(res.accessToken).to.be.a('string').and.to.have.length.above(10);",
+                  "});",
+                  "pm.test('Has refreshToken', () => pm.expect(res.refreshToken).to.be.a('string'));",
+                  "pm.test('tokenType is Bearer', () => pm.expect(res.tokenType).to.equal('Bearer'));",
+                  "",
+                  "pm.collectionVariables.set('accessToken',  res.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "",
+                  "// Decode the TMS-internal JWT (HMAC-SHA256).",
+                  "// Claims: sub (userId), email, role, tenantId, clientId, subTenantId, iat, exp",
+                  "try {",
+                  "    const parts = res.accessToken.split('.');",
+                  "    if (parts.length === 3) {",
+                  "        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "        const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);",
+                  "        const p = JSON.parse(atob(padded));",
+                  "        console.log('=== Internal JWT payload ===', JSON.stringify(p, null, 2));",
+                  "        if (p.sub)         pm.collectionVariables.set('userId',      p.sub);",
+                  "        if (p.role)        pm.collectionVariables.set('role',        p.role);",
+                  "        if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
+                  "        if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
+                  "        if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
+                  "        pm.test('JWT sub (userId) present', () => pm.expect(p.sub).to.be.a('string'));",
+                  "        pm.test('JWT role present',         () => pm.expect(p.role).to.be.a('string'));",
+                  "        pm.test('JWT not expired',          () => pm.expect(p.exp * 1000).to.be.above(Date.now()));",
+                  "        console.log('userId:', p.sub, '| role:', p.role, '| tenantId:', p.tenantId || '(none)');",
+                  "        console.log('expires:', new Date(p.exp * 1000).toISOString());",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.error('Could not decode internal JWT:', e.message);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "## Login — Two Modes\n\nMatches the old-code `OauthTokenFilter` + `TmsAuthenticationSuccessHandler` flow.\n\n---\n\n### MODE 1 — OAuth Bearer token *(old-code behaviour)*\n\nYou already have an OAuth RS256 token from the OAuth server. Pass it as `Authorization: Bearer`:\n\n```\nPOST /api/auth/login\nAuthorization: Bearer <your_oauth_rs256_token>\n(no body required)\n```\n\n**In Postman:** set the `oauthBearerToken` collection variable to your OAuth token. The pre-request script will inject it as the `Authorization` header automatically.\n\n---\n\n### MODE 2 — Username + password *(new convenience flow)*\n\nLet TMS call the OAuth server on your behalf:\n\n```json\nPOST /api/auth/login\n{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}\n```\n\n**In Postman:** leave `oauthBearerToken` empty and set `username` / `password`.\n\n---\n\n### Both modes return the same response (`AuthTokens`):\n\n```json\n{\n  \"accessToken\":  \"<TMS-internal HMAC-SHA256 JWT>\",\n  \"refreshToken\": \"<OAuth refresh token or null>\",\n  \"expiresIn\":    28800,\n  \"tokenType\":    \"Bearer\"\n}\n```\n\n**Use `accessToken` as `Authorization: Bearer` for all subsequent TMS API calls.**\n\nThe test script decodes the internal JWT and saves `userId`, `role`, `tenantId`, etc. as collection variables."
+          }
+        },
+        {
+          "name": "Token Exchange  (OAuth → TMS token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has accessToken', () => pm.expect(res.accessToken).to.be.a('string'));",
+                  "if (res.accessToken) pm.collectionVariables.set('accessToken', res.accessToken);",
+                  "try {",
+                  "    const parts = res.accessToken.split('.');",
+                  "    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "    const p = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)));",
+                  "    if (p.sub)         pm.collectionVariables.set('userId',      p.sub);",
+                  "    if (p.role)        pm.collectionVariables.set('role',        p.role);",
+                  "    if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
+                  "    if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
+                  "    if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
+                  "    console.log('Exchanged | userId:', p.sub, '| role:', p.role);",
+                  "} catch (e) { console.error('Cannot decode token:', e.message); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oauthToken\": \"PASTE_YOUR_OAUTH_RS256_TOKEN_HERE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token-exchange",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token-exchange"
+              ]
+            },
+            "description": "## Token Exchange — OAuth RS256 → TMS HS256\n\nUse this if you **already have an OAuth RS256 access token** obtained directly from the OAuth server and want a TMS-internal JWT.\n\n### When to use\n- You called `{{oauthBaseUrl}}/oauth/token` yourself and got an RS256 token.\n- You tried using the OAuth token as Bearer on a TMS endpoint and got:\n  `Unsupported JWS algorithm RS256, must be HS256`\n\n### Server-side flow\n1. Validates the OAuth token signature (RSA public key).\n2. Upserts the `login` row (first-login creates it; subsequent logins update `last_login_date` / `gtoken`).\n3. Loads user role + tenant context from the `users` table.\n4. Signs a new TMS-internal HMAC-SHA256 JWT with full tenant context.\n5. Returns the internal JWT as `accessToken`.\n\n### Response\n```json\n{\n  \"accessToken\": \"<TMS-internal HS256 JWT>\",\n  \"refreshToken\": null,\n  \"expiresIn\":    28800,\n  \"tokenType\":    \"Bearer\"\n}\n```\n\n> No `refreshToken` is returned because only the OAuth access token was provided. Use `POST /api/auth/login` with username/password for full login with refresh."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has new accessToken', () => pm.expect(res.accessToken).to.be.a('string'));",
+                  "if (res.accessToken)  pm.collectionVariables.set('accessToken',  res.accessToken);",
+                  "if (res.refreshToken) pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "try {",
+                  "    const parts = res.accessToken.split('.');",
+                  "    if (parts.length === 3) {",
+                  "        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "        const p = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)));",
+                  "        if (p.role)        pm.collectionVariables.set('role',        p.role);",
+                  "        if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
+                  "        if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
+                  "        if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
+                  "        console.log('Refreshed | role:', p.role, '| exp:', new Date(p.exp * 1000).toISOString());",
+                  "    }",
+                  "} catch (e) { console.error('Could not decode refreshed JWT:', e.message); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\":       \"{{userId}}\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Rotates the OAuth refresh token and re-signs a fresh TMS-internal JWT.\n\nBecause the server re-loads the user from DB, any **role or tenant assignment changes** made by an admin since last login are picked up here.\n\n**Refresh token rotation is enforced** — replaying an old refresh token returns `403` (reuse detection)."
+          }
+        },
+        {
+          "name": "Me (Current User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has userId', () => pm.expect(res.userId).to.be.a('string'));",
+                  "pm.test('Has email',  () => pm.expect(res.email).to.be.a('string'));",
+                  "pm.test('Has roles',  () => pm.expect(res.roles).to.be.an('array'));",
+                  "if (res.tenantId)    pm.collectionVariables.set('tenantId',    res.tenantId);",
+                  "if (res.clientId)    pm.collectionVariables.set('clientId',    res.clientId);",
+                  "if (res.subTenantId) pm.collectionVariables.set('subTenantId', res.subTenantId);",
+                  "console.log('Me:', res.email, '| userId:', res.userId, '| roles:', res.roles);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Returns the authenticated user's profile decoded from the TMS-internal JWT.\n\n**Response (`AuthUser`):**\n```json\n{\n  \"userId\": \"auth0|abc123\",\n  \"email\": \"user@example.com\",\n  \"name\": \"Jane Doe\",\n  \"tenantId\": \"550e8400-...\",\n  \"clientId\": \"6ba7b810-...\",\n  \"subTenantId\": null,\n  \"roles\": [\"TENANT_ADMIN\"]\n}\n```"
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));",
+                  "pm.collectionVariables.set('accessToken',  '');",
+                  "pm.collectionVariables.set('refreshToken', '');",
+                  "pm.collectionVariables.set('role', '');",
+                  "console.log('Logged out — tokens cleared.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes the OAuth refresh token and clears the Redis session.\n\nRequires `Authorization: Bearer {{accessToken}}`.\n\nReturns `204 No Content`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User (/me)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"TENANT_ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "role"
+              ]
+            },
+            "description": "Valid roles: `ADMIN`, `CLIENT_ADMIN`, `TENANT_ADMIN`, `SUBTENANT_USER`, `VIEWER`.\n\nAfter a role change the user must refresh their token for the new role to be embedded in the next internal JWT."
+          }
+        },
+        {
+          "name": "Assign Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/tenant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "tenant"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Clients",
+      "item": [
+        {
+          "name": "List Clients",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Client",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('clientId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Parking Co.\",\n  \"plan\": \"STANDARD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Client",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Parking Co. (Updated)\",\n  \"plan\": \"ENTERPRISE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Client",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏗️ Tenants",
+      "item": [
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('tenantId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Downtown Parkade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Downtown Parkade (Updated)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Branding (Public — no auth)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}",
+                "branding"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Branding",
+          "request": {
+            "method": "PUT",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "logoFile",
+                  "type": "file",
+                  "src": "",
+                  "description": "Optional logo image file"
+                },
+                {
+                  "key": "primaryColor",
+                  "value": "#1A73E8",
+                  "type": "text"
+                },
+                {
+                  "key": "accentColor",
+                  "value": "#FFA726",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}",
+                "branding"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏙️ Sub-Tenants",
+      "item": [
+        {
+          "name": "List Sub-Tenants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sub-tenants?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sub-tenants"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sub-Tenant",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sub-tenants",
+                "{{subTenantId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Sub-Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('subTenantId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Level B1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sub-tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sub-tenants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Sub-Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Level B1 (Updated)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sub-tenants",
+                "{{subTenantId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Sub-Tenant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sub-tenants",
+                "{{subTenantId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🅿️ Zones",
+      "item": [
+        {
+          "name": "List Zones",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/zones?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "zones"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Zone",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Zone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('zoneId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor\",\n  \"defaultDurationMinutes\": 60,\n  \"maxDurationMinutes\": 240\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/zones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "zones"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Zone",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor (Updated)\",\n  \"defaultDurationMinutes\": 90,\n  \"maxDurationMinutes\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Zone",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Quota Configs",
+      "item": [
+        {
+          "name": "List Quota Configs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/quota-configs?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quota-configs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Quota Config",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quota-configs",
+                "{{quotaConfigId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Quota Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('quotaConfigId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"subTenantId\": null,\n  \"scope\": \"TENANT\",\n  \"period\": \"DAILY\",\n  \"maxCount\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/quota-configs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quota-configs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Quota Config",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxCount\": 1000,\n  \"scope\": \"TENANT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quota-configs",
+                "{{quotaConfigId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔗 QR Links",
+      "item": [
+        {
+          "name": "List Links",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Link",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links",
+                "{{linkId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Link by Token (Public — no auth)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links/by-token/{{linkToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links",
+                "by-token",
+                "{{linkToken}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Link",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id)    pm.collectionVariables.set('linkId',    res.id);",
+                  "if (res.token) pm.collectionVariables.set('linkToken', res.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneId\": \"{{zoneId}}\",\n  \"linkType\": \"PERMANENT\",\n  \"label\": \"Entrance Gate QR\",\n  \"defaultDurationMinutes\": 60,\n  \"expiresAt\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deactivate Link",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/deactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links",
+                "{{linkId}}",
+                "deactivate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download QR PDF",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/qr-pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "links",
+                "{{linkId}}",
+                "qr-pdf"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ Validations",
+      "item": [
+        {
+          "name": "List Validations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE",
+                  "disabled": true
+                },
+                {
+                  "key": "zoneId",
+                  "value": "{{zoneId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "licensePlate",
+                  "value": "ABC123",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-05-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31T23:59:59Z",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Validation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations",
+                "{{validationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Validation (Staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('validationId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneId\": \"{{zoneId}}\",\n  \"licensePlate\": \"ABC123\",\n  \"durationMinutes\": 60,\n  \"endUserEmail\": \"driver@example.com\",\n  \"endUserPhone\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Validation via QR (Public — no auth)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"licensePlate\": \"ABC123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations/public/{{linkToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations",
+                "public",
+                "{{linkToken}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Extend Validation",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"extraMinutes\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/extend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations",
+                "{{validationId}}",
+                "extend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Validation",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "validations",
+                "{{validationId}}",
+                "cancel"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Reports",
+      "item": [
+        {
+          "name": "List Report Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Report Job",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/{{reportJobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reports",
+                "{{reportJobId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Queue Report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('reportJobId', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportType\": \"VALIDATIONS_SUMMARY\",\n  \"format\": \"EXCEL\",\n  \"filters\": {\n    \"from\": \"2026-05-01T00:00:00Z\",\n    \"to\":   \"2026-05-31T23:59:59Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reports"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit-logs?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "action",
+                  "value": "CREATE",
+                  "disabled": true
+                },
+                {
+                  "key": "entityType",
+                  "value": "VALIDATION",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-05-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31T23:59:59Z",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "❤️ Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Info",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/actuator/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "info"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
