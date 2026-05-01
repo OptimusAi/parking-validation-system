@@ -3,36 +3,35 @@ package ca.optimusAI.pv.auth;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
 import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationContext;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
-import java.security.KeyStore;
-import java.security.cert.Certificate;
-import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
-import java.util.Enumeration;
+import java.util.List;
 
 /**
- * OAuth 2.0 password-grant adapter.
+ * OAuth 2.0 adapter.
  *
- * Authenticates users against the OAuth2 authorisation server at {@code oauth.host}
- * using the Resource Owner Password Credentials grant.
+ * Verifies incoming OAuth RS256 Bearer tokens by fetching the public key from the
+ * OAuth server's JWKS endpoint ({@code oauth.jwks-uri}).
  *
- * JWT signatures are verified with the RSA public key loaded from
- * {@code oauth.jwt.public-key-path} (defaults to classpath:tms-jwt-pub.jks).
+ * In local dev ({@code oauth.local-auth-enabled=true}), if the JWKS endpoint is
+ * unreachable or not configured, signature verification is skipped so that test
+ * tokens can be used without a running OAuth server.
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OAuthAdapter {
 
     @Value("${oauth.host:http://localhost:9090}")
@@ -44,42 +43,16 @@ public class OAuthAdapter {
     @Value("${oauth.client-secret:cpat3n@ntm@n@g3m3nt5y5t3mcl13nts3cr3t}")
     private String clientSecret;
 
-    @Value("${oauth.jwt.public-key-path:classpath:tms-jwt-pub.jks}")
-    private String publicKeyPath;
+    /** JWKS URI for RS256 token verification. Defaults to Spring Auth Server standard path. */
+    @Value("${oauth.jwks-uri:}")
+    private String jwksUri;
 
-    private final ApplicationContext applicationContext;
-    private RSAPublicKey rsaPublicKey;
+    /** When true, a failed JWKS fetch degrades to unverified JWT parsing (local dev only). */
+    @Value("${oauth.local-auth-enabled:false}")
+    private boolean localAuthEnabled;
 
+    private final JWKSCache jwksCache;
     private final RestClient restClient = RestClient.create();
-
-    public OAuthAdapter(ApplicationContext applicationContext) {
-        this.applicationContext = applicationContext;
-    }
-
-    @PostConstruct
-    void loadPublicKey() {
-        try {
-            Resource resource = applicationContext.getResource(publicKeyPath);
-            // Load JKS keystore — password is null (public keystore has no private key password)
-            KeyStore ks = KeyStore.getInstance("JKS");
-            ks.load(resource.getInputStream(), null);
-
-            // Extract RSA public key from the first certificate found in the keystore
-            Enumeration<String> aliases = ks.aliases();
-            if (!aliases.hasMoreElements()) {
-                throw new IllegalStateException("JKS keystore contains no certificates: " + publicKeyPath);
-            }
-            String alias = aliases.nextElement();
-            Certificate cert = ks.getCertificate(alias);
-            if (cert == null) {
-                throw new IllegalStateException("No certificate for alias '" + alias + "' in: " + publicKeyPath);
-            }
-            rsaPublicKey = (RSAPublicKey) cert.getPublicKey();
-            log.info("OAuth JWT RSA public key loaded from JKS: {} (alias={})", publicKeyPath, alias);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to load OAuth JWT public key from JKS: " + publicKeyPath, e);
-        }
-    }
 
     // ── Login (password grant) ────────────────────────────────────────────────
 
@@ -150,11 +123,7 @@ public class OAuthAdapter {
         try {
             SignedJWT signed = SignedJWT.parse(token);
 
-            // Signature verification against the loaded RSA public key
-            JWSVerifier verifier = new RSASSAVerifier(rsaPublicKey);
-            if (!signed.verify(verifier)) {
-                throw new InvalidTokenException("Invalid JWT signature");
-            }
+            verifySignature(signed);
 
             JWTClaimsSet claims = signed.getJWTClaimsSet();
 
@@ -164,7 +133,7 @@ public class OAuthAdapter {
                 throw new InvalidTokenException("Token expired");
             }
 
-            // userId — Spring OAuth2 stores the principal as "user_name"
+            // userId — Spring OAuth2 stores the principal as "user_name"; OIDC uses "sub"
             String userId = claims.getStringClaim("user_name");
             if (userId == null) userId = claims.getSubject();
             if (userId == null) throw new InvalidTokenException("Missing user_name / sub claim");
@@ -182,6 +151,70 @@ public class OAuthAdapter {
         } catch (Exception e) {
             throw new InvalidTokenException("Token validation failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Verify the JWT signature using the JWKS endpoint.
+     * In local dev mode, if the JWKS endpoint is unreachable or unconfigured,
+     * signature verification is skipped with a warning (allows testing without
+     * a running OAuth server).
+     */
+    private void verifySignature(SignedJWT signed) {
+        String effectiveJwksUri = resolveJwksUri();
+
+        if (effectiveJwksUri == null || effectiveJwksUri.isBlank()) {
+            if (localAuthEnabled) {
+                log.warn("No JWKS URI configured — skipping OAuth token signature verification (local dev mode)");
+                return;
+            }
+            throw new InvalidTokenException("OAuth JWT verification not configured — set oauth.jwks-uri");
+        }
+
+        try {
+            JWKSet jwkSet = jwksCache.get(effectiveJwksUri);
+            String kid = signed.getHeader().getKeyID();
+
+            RSAKey rsaKey = null;
+            if (kid != null) {
+                rsaKey = (RSAKey) jwkSet.getKeyByKeyId(kid);
+            }
+            // Fall back to first RSA key if no kid match
+            if (rsaKey == null) {
+                rsaKey = (RSAKey) jwkSet.getKeys().stream()
+                        .filter(k -> k instanceof RSAKey)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (rsaKey == null) {
+                throw new InvalidTokenException("No RSA key found in JWKS at: " + effectiveJwksUri);
+            }
+
+            JWSVerifier verifier = new RSASSAVerifier(rsaKey.toRSAPublicKey());
+            if (!signed.verify(verifier)) {
+                throw new InvalidTokenException("Invalid JWT signature");
+            }
+        } catch (InvalidTokenException e) {
+            throw e;
+        } catch (Exception e) {
+            if (localAuthEnabled) {
+                log.warn("JWKS verification failed ({}) — proceeding without signature check (local dev mode)",
+                         e.getMessage());
+            } else {
+                throw new InvalidTokenException("JWT signature verification failed: " + e.getMessage());
+            }
+        }
+    }
+
+    /** Resolve JWKS URI: explicit config takes precedence, then derive from oauth.host. */
+    private String resolveJwksUri() {
+        if (jwksUri != null && !jwksUri.isBlank()) {
+            return jwksUri;
+        }
+        // Derive from host — Spring Authorization Server standard path
+        if (host != null && !host.isBlank()) {
+            return host + "/.well-known/jwks.json";
+        }
+        return null;
     }
 
     // ── Token revocation ─────────────────────────────────────────────────────

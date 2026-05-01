@@ -55,6 +55,10 @@ public class AppUser {
     @Builder.Default
     private boolean isActive = true;
 
+    /** BCrypt-hashed password for local/dev authentication. Null in production (OAuth2 only). */
+    @Column(name = "password_hash", length = 256)
+    private String passwordHash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

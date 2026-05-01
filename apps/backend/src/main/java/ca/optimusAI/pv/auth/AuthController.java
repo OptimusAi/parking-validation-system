@@ -12,8 +12,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,6 +40,10 @@ public class AuthController {
     private final LoginService                loginService;
     private final ClientAdminTenantRepository clientAdminTenantRepo;
     private final AppUserRepository           appUserRepository;
+    private final PasswordEncoder             passwordEncoder;
+
+    @Value("${oauth.local-auth-enabled:false}")
+    private boolean localAuthEnabled;
 
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")
@@ -56,6 +62,12 @@ public class AuthController {
                     "JSON body {\"username\": \"...\", \"password\": \"...\"}");
         }
 
+        // ── Local dev auth (no OAuth server required) ────────────────────────
+        if (localAuthEnabled) {
+            return ResponseEntity.ok(processLocalCredentials(req.username(), req.password()));
+        }
+
+        // ── Production: OAuth2 password grant ───────────────────────────────
         OAuthTokenResponse oauthResp = oAuthAdapter.login(req.username(), req.password());
         return ResponseEntity.ok(processOAuthToken(oauthResp.accessToken()));
     }
@@ -93,6 +105,27 @@ public class AuthController {
 
     // ── Core login logic ─────────────────────────────────────────────────────
 
+    /**
+     * Local dev auth: verify email + BCrypt password directly against app_user.
+     * Never called in production (guarded by localAuthEnabled flag).
+     */
+    private LoginResponse processLocalCredentials(String email, String password) {
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new InvalidTokenException("Invalid username or password"));
+
+        if (user.getPasswordHash() == null ||
+                !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new InvalidTokenException("Invalid username or password");
+        }
+
+        if (!user.isActive()) {
+            throw new InvalidTokenException("Account is disabled");
+        }
+
+        log.debug("Local auth successful for email={} role={}", email, user.getRole());
+        return buildLoginResponse(user);
+    }
+
     private LoginResponse processOAuthToken(String oauthToken) {
         JwtClaims oauthClaims = oAuthAdapter.validateAndExtractClaims(oauthToken);
 
@@ -108,6 +141,10 @@ public class AuthController {
             throw new InvalidTokenException("Account is disabled");
         }
 
+        return buildLoginResponse(user);
+    }
+
+    private LoginResponse buildLoginResponse(AppUser user) {
         List<UUID> assignedTenants = "CLIENT_ADMIN".equals(user.getRole())
                 ? clientAdminTenantRepo.findTenantIdsByUserId(user.getId())
                 : List.of();

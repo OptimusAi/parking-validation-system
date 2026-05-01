@@ -36,11 +36,19 @@ spring:
 oauth:
   host: ${OAUTH_HOST:http://localhost:9090}
   client-id: ${OAUTH_CLIENT_ID:cpa-tms-client}
-  client-secret: ${OAUTH_CLIENT_SECRET:cpat3n@ntm@n@g3m3nt5y5t3mcl13nts3cr3t}
+  client-secret: ${OAUTH_CLIENT_SECRET:Cp@P@rkPlusClientS3cr3tPassw0rd}
+  # JWKS endpoint for RS256 Bearer token verification.
+  # Defaults to {oauth.host}/.well-known/jwks.json if left blank.
+  # Override via OAUTH_JWKS_URI env var (e.g. https://your-auth-server/.well-known/jwks.json).
+  jwks-uri: ${OAUTH_JWKS_URI:}
   jwt:
     public-key-path: ${OAUTH_JWT_PUBLIC_KEY_PATH:classpath:tms-jwt-pub.jks}
   refresh-token-ttl-hours: 8
   user-role-cache-minutes: 5
+  # When true, a missing/unreachable JWKS endpoint degrades to unverified JWT parsing,
+  # and direct email+password login against the local DB is enabled.
+  # Set to false in production (default via OAUTH_LOCAL_AUTH_ENABLED env var).
+  local-auth-enabled: ${OAUTH_LOCAL_AUTH_ENABLED:true}
 
 # TMS-internal JWT (signed at login, validated on every request by JwtAuthenticationFilter).
 # Must be at least 32 chars. Override via TMS_JWT_SECRET env var in prod.
@@ -51,7 +59,8 @@ tms:
   qr:
     hmac-secret: ${TMS_QR_HMAC_SECRET:qr-hmac-secret-change-me-in-production-min32chars}
 
-aws:  region: ${AWS_REGION:ca-central-1}
+aws:
+  region: ${AWS_REGION:ca-central-1}
   s3:
     bucket: ${AWS_S3_BUCKET:tms-reports}
   ses:

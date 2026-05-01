@@ -1,12 +1,13 @@
 package ca.optimusAI.pv.config;
 
-import ca.optimusAI.pv.user.entity.User;
-import ca.optimusAI.pv.user.repository.UserRepository;
+import ca.optimusAI.pv.user.entity.AppUser;
+import ca.optimusAI.pv.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,12 +37,17 @@ public class LocalDataSeeder implements ApplicationRunner {
     private static final UUID TENANT_ID     = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID SUB_TENANT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
-    private final UserRepository userRepository;
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder    passwordEncoder;
+
+    /** Default password for all local dev users. Override by setting SPRING_PROFILES_ACTIVE=local. */
+    private static final String LOCAL_DEV_PASSWORD = "Admin1234!";
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        log.info("[LocalDataSeeder] Seeding local test users ...");
+        log.info("[LocalDataSeeder] Seeding local test users (password={})", LOCAL_DEV_PASSWORD);
+        String hash = passwordEncoder.encode(LOCAL_DEV_PASSWORD);
 
         List<UserSeed> seeds = List.of(
             new UserSeed("local|venu-kannuri-admin",
@@ -65,31 +71,40 @@ public class LocalDataSeeder implements ApplicationRunner {
             new UserSeed("local|cpatest8963-subtenant-user",
                          "cpatest8963@gmail.com",
                          "CPA Test SubTenant User",
-                         "SUBTENANT_USER",
+                         "SUB_TENANT_ADMIN",
                          CLIENT_ID, TENANT_ID, SUB_TENANT_ID)
         );
 
         for (UserSeed seed : seeds) {
-            userRepository.findByAuth0UserId(seed.auth0UserId()).ifPresentOrElse(
+            userRepository.findByAuthProviderUserId(seed.auth0UserId()).ifPresentOrElse(
                 existing -> {
-                    // Keep existing record but ensure role is correct
+                    // Ensure role and password hash are up-to-date
+                    boolean changed = false;
                     if (!existing.getRole().equals(seed.role())) {
                         existing.setRole(seed.role());
+                        changed = true;
+                    }
+                    if (existing.getPasswordHash() == null) {
+                        existing.setPasswordHash(hash);
+                        changed = true;
+                    }
+                    if (changed) {
                         userRepository.save(existing);
-                        log.info("[LocalDataSeeder] Updated role for {} → {}", seed.email(), seed.role());
+                        log.info("[LocalDataSeeder] Updated user {} → role={}", seed.email(), seed.role());
                     } else {
                         log.debug("[LocalDataSeeder] User already seeded: {}", seed.email());
                     }
                 },
                 () -> {
-                    User user = User.builder()
-                            .auth0UserId(seed.auth0UserId())
+                    AppUser user = AppUser.builder()
+                            .authProviderUserId(seed.auth0UserId())
                             .email(seed.email())
                             .name(seed.name())
                             .role(seed.role())
                             .clientId(seed.clientId())
                             .tenantId(seed.tenantId())
                             .subTenantId(seed.subTenantId())
+                            .passwordHash(hash)
                             .isActive(true)
                             .build();
                     userRepository.save(user);

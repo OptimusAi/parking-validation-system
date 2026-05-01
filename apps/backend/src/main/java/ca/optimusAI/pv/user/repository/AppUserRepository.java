@@ -17,6 +17,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
     Optional<AppUser> findByAuthProviderUserId(String authProviderUserId);
 
+    Optional<AppUser> findByEmailIgnoreCase(String email);
+
     Page<AppUser> findByClientId(UUID clientId, Pageable pageable);
 
     @Query("SELECT u FROM AppUser u WHERE u.tenantId IN :tenantIds")
