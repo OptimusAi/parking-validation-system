@@ -1,0 +1,25 @@
+# ─── Maven build output ───────────────────────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ─── Maven wrapper binary ─────────────────────────────────────────────────────
+.mvn/wrapper/maven-wrapper.jar
+
+# ─── Spring Boot dev ──────────────────────────────────────────────────────────
+spring-shell.log
+
+# ─── Test output ──────────────────────────────────────────────────────────────
+test_results.log
+surefire-reports/
+
+# ─── IDE — IntelliJ ───────────────────────────────────────────────────────────
+.idea/
+!.idea/.gitignore
+*.iml
+
+# ─── Secrets ──────────────────────────────────────────────────────────────────
+.env
+application-local.yml
+application-secret.yml

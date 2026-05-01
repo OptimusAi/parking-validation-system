@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tms_postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: tms_parking
+      POSTGRES_USER: tms_user
+      POSTGRES_PASSWORD: tms_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_user -d tms_parking"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tms_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: tms_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # backend:
+  #   build:
+  #     context: ../apps/backend
+  #   container_name: tms_backend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: 5432
+  #     DB_NAME: tms_parking
+  #     DB_USERNAME: tms_user
+  #     DB_PASSWORD: tms_password
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     RABBITMQ_HOST: rabbitmq
+  #     RABBITMQ_PORT: 5672
+  #     RABBITMQ_USER: guest
+  #     RABBITMQ_PASS: guest
+  #     AUTH0_DOMAIN: ${AUTH0_DOMAIN:-dev-yybbb6h80wk24ris.us.auth0.com}
+  #     AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-}
+  #     AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
+  #     AUTH0_NAMESPACE: ${AUTH0_NAMESPACE:-https://tms.cpa.ca}
+  #     APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+  #     QR_HMAC_SECRET: ${QR_HMAC_SECRET:-change-me-minimum-32-characters-here}
+  #     AWS_REGION: ${AWS_REGION:-ca-central-1}
+  #     AWS_S3_BUCKET: ${AWS_S3_BUCKET:-tms-reports}
+  #     AWS_SES_FROM_EMAIL: ${AWS_SES_FROM_EMAIL:-noreply@cpa.com}
+  #     TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  #     TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  #     TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 60s
+
+  # frontend:
+  #   build:
+  #     context: ../apps/frontend
+  #     args:
+  #       NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+  #   container_name: tms_frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+  #     NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
+  #     AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-}
+  #     AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
+  #     # Must be https://<AUTH0_DOMAIN> — same Auth0 tenant as the backend
+  #     AUTH0_ISSUER: ${AUTH0_ISSUER:-https://dev-yybbb6h80wk24ris.us.auth0.com}
+  #     # Server-side backend URL (container-internal, overrides NEXT_PUBLIC_API_BASE_URL)
+  #     INTERNAL_API_URL: http://backend:8080
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:
