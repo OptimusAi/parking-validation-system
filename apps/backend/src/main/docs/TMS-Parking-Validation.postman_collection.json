@@ -1,149 +1,56 @@
 {
   "info": {
-    "_postman_id": "tms-parking-validation-v3",
+    "_postman_id": "tms-parking-validation-v4",
     "name": "TMS Parking Validation",
-    "description": "## TMS Parking Validation API\n\n### Token-Switching Login Flow\n\nThe TMS login is a **two-step token switch** — the client never holds an OAuth token directly.\n\n**Server-side flow on `POST /api/auth/login`:**\n1. Backend calls the OAuth server (password grant) with the supplied credentials.\n2. Validates the OAuth JWT signature using the RSA public key (`tms-jwt-pub.jks`).\n3. **Upserts** a `login` row — creates on first login, updates `last_login_date` / `gtoken` / `email` on subsequent logins.\n4. Loads `role`, `tenantId`, `clientId`, `subTenantId` from the `users` table.\n5. Signs a **new TMS-internal HMAC-SHA256 JWT** embedding the full tenant context.\n6. Returns the internal JWT as `accessToken` — the raw OAuth token is **never** sent to the client.\n\n### Quick Start\n1. Set the `password` variable (and optionally `oauthBaseUrl` / `username`).\n2. **Run Login** — `accessToken`, `refreshToken`, `userId`, `role`, `tenantId`, `clientId`, `subTenantId` are auto-saved.\n3. All protected requests inherit `Bearer {{accessToken}}` from the collection auth.",
+    "description": "## TMS Parking Validation API — v4\n\n### Login Flow\n\n**Two modes, one endpoint `POST /api/auth/login`:**\n\n- **MODE 1 — OAuth Bearer**: set `oauthBearerToken` variable → script injects it as `Authorization: Bearer`.\n- **MODE 2 — Username/Password**: leave `oauthBearerToken` empty, set `username` + `password`.\n\n**Both modes return `LoginResponse`:**\n```json\n{\n  \"tmsToken\":       \"<HS256 JWT — use as Bearer on all calls>\",\n  \"role\":           \"TENANT_ADMIN\",\n  \"tenantId\":       \"uuid\",\n  \"clientId\":       \"uuid\",\n  \"subTenantId\":    null,\n  \"assignedTenants\": [],\n  \"email\":          \"user@example.com\",\n  \"name\":           \"Jane Doe\",\n  \"message\":        null\n}\n```\n\n### Roles (5 levels)\n`ADMIN` > `CLIENT_ADMIN` > `TENANT_ADMIN` > `SUB_TENANT_ADMIN` > `USER`\n\n### Quick Start\n1. Set `password` (and `username` if different).\n2. Run **Login** — `accessToken`, `role`, `tenantId`, `clientId`, `subTenantId` are auto-saved.\n3. All protected requests inherit `Authorization: Bearer {{accessToken}}` from the collection auth.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080",
-      "type": "string",
-      "description": "TMS backend base URL"
-    },
-    {
-      "key": "oauthBaseUrl",
-      "value": "http://localhost:9090",
-      "type": "string",
-      "description": "OAuth server base URL (server-side only — for reference)"
-    },
-    {
-      "key": "username",
-      "value": "venu.kannuri@optimus-ai.com",
-      "type": "string"
-    },
-    {
-      "key": "password",
-      "value": "",
-      "type": "string",
-      "description": "Set this before running Login"
-    },
-    {
-      "key": "oauthBearerToken",
-      "value": "",
-      "type": "string",
-      "description": "Set to your OAuth RS256 token for MODE 1 login. Leave empty for MODE 2 (username/password)."
-    },
-    {
-      "key": "accessToken",
-      "value": "",
-      "type": "string",
-      "description": "TMS-internal HMAC-SHA256 JWT — set by Login"
-    },
-    {
-      "key": "refreshToken",
-      "value": "",
-      "type": "string",
-      "description": "OAuth refresh token — set by Login"
-    },
-    {
-      "key": "userId",
-      "value": "",
-      "type": "string",
-      "description": "Decoded from JWT sub claim"
-    },
-    {
-      "key": "role",
-      "value": "",
-      "type": "string",
-      "description": "Decoded from JWT role claim"
-    },
-    {
-      "key": "tenantId",
-      "value": "",
-      "type": "string",
-      "description": "Decoded from JWT tenantId claim"
-    },
-    {
-      "key": "clientId",
-      "value": "",
-      "type": "string",
-      "description": "Decoded from JWT clientId claim"
-    },
-    {
-      "key": "subTenantId",
-      "value": "",
-      "type": "string",
-      "description": "Decoded from JWT subTenantId claim"
-    },
-    {
-      "key": "zoneId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "linkId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "linkToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "validationId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "reportJobId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "quotaConfigId",
-      "value": "",
-      "type": "string"
-    }
+    { "key": "baseUrl",           "value": "http://localhost:8080",            "type": "string" },
+    { "key": "oauthBaseUrl",      "value": "http://localhost:9090",            "type": "string", "description": "OAuth server (server-side only)" },
+    { "key": "username",          "value": "venu.kannuri@optimus-ai.com",      "type": "string" },
+    { "key": "password",          "value": "",                                 "type": "string", "description": "Set before running Login" },
+    { "key": "oauthBearerToken",  "value": "",                                 "type": "string", "description": "Set to OAuth RS256 token for MODE 1. Leave empty for MODE 2." },
+    { "key": "accessToken",       "value": "",                                 "type": "string", "description": "TMS HS256 JWT — set by Login, used as Bearer" },
+    { "key": "userId",            "value": "",                                 "type": "string" },
+    { "key": "role",              "value": "",                                 "type": "string" },
+    { "key": "tenantId",          "value": "",                                 "type": "string" },
+    { "key": "clientId",          "value": "",                                 "type": "string" },
+    { "key": "subTenantId",       "value": "",                                 "type": "string" },
+    { "key": "assignedTenants",   "value": "[]",                               "type": "string", "description": "JSON array of UUID strings — populated for CLIENT_ADMIN" },
+    { "key": "zoneId",            "value": "",                                 "type": "string" },
+    { "key": "linkId",            "value": "",                                 "type": "string" },
+    { "key": "linkToken",         "value": "",                                 "type": "string" },
+    { "key": "validationId",      "value": "",                                 "type": "string" },
+    { "key": "reportJobId",       "value": "",                                 "type": "string" },
+    { "key": "quotaConfigId",     "value": "",                                 "type": "string" },
+    { "key": "targetUserId",      "value": "",                                 "type": "string", "description": "UUID of the user to modify (not yourself)" }
   ],
   "auth": {
     "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{accessToken}}",
-        "type": "string"
-      }
-    ]
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
   },
   "item": [
     {
       "name": "🔐 Auth",
-      "description": "Authentication endpoints.\n\nImplements the **OAuth2 password-grant → TMS internal token switching** flow.\nThe OAuth server (`{{oauthBaseUrl}}`) is called server-side — the client only receives a TMS-internal HMAC-SHA256 JWT.",
+      "description": "Authentication — TMS HS256 token flow.",
       "item": [
         {
-          "name": "Login  (OAuth → TMS token switch)",
+          "name": "Login (OAuth → TMS token)",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Detect login mode:",
-                  "// MODE 1 (old-code flow): set collection variable 'oauthBearerToken' to your OAuth RS256 token",
-                  "//         → request will send it as Authorization: Bearer header, no body needed",
-                  "// MODE 2 (password flow): leave 'oauthBearerToken' empty",
-                  "//         → request will send {username, password} body",
                   "const oauthToken = pm.collectionVariables.get('oauthBearerToken');",
                   "if (oauthToken) {",
-                  "    pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + oauthToken });",
+                  "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + oauthToken });",
                   "    pm.request.body.raw = '';",
-                  "    console.log('MODE 1: OAuth Bearer token login (old-code flow)');",
+                  "    console.log('MODE 1: OAuth Bearer token');",
                   "} else {",
                   "    pm.request.headers.remove('Authorization');",
-                  "    console.log('MODE 2: Username/password login');",
+                  "    console.log('MODE 2: username/password');",
                   "}"
                 ]
               }
@@ -154,80 +61,51 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "",
                   "const res = pm.response.json();",
-                  "pm.test('Has accessToken (TMS internal JWT)', () => {",
-                  "    pm.expect(res.accessToken).to.be.a('string').and.to.have.length.above(10);",
-                  "});",
-                  "pm.test('Has refreshToken', () => pm.expect(res.refreshToken).to.be.a('string'));",
-                  "pm.test('tokenType is Bearer', () => pm.expect(res.tokenType).to.equal('Bearer'));",
-                  "",
-                  "pm.collectionVariables.set('accessToken',  res.accessToken);",
-                  "pm.collectionVariables.set('refreshToken', res.refreshToken);",
-                  "",
-                  "// Decode the TMS-internal JWT (HMAC-SHA256).",
-                  "// Claims: sub (userId), email, role, tenantId, clientId, subTenantId, iat, exp",
+                  "pm.test('Has tmsToken', () => pm.expect(res.tmsToken).to.be.a('string').and.have.length.above(10));",
+                  "pm.test('Has role',     () => pm.expect(res.role).to.be.a('string'));",
+                  "pm.collectionVariables.set('accessToken', res.tmsToken);",
+                  "if (res.role)        pm.collectionVariables.set('role',        res.role);",
+                  "if (res.tenantId)    pm.collectionVariables.set('tenantId',    res.tenantId);",
+                  "if (res.clientId)    pm.collectionVariables.set('clientId',    res.clientId);",
+                  "if (res.subTenantId) pm.collectionVariables.set('subTenantId', res.subTenantId);",
+                  "if (res.assignedTenants) pm.collectionVariables.set('assignedTenants', JSON.stringify(res.assignedTenants));",
                   "try {",
-                  "    const parts = res.accessToken.split('.');",
+                  "    const parts = res.tmsToken.split('.');",
                   "    if (parts.length === 3) {",
-                  "        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
-                  "        const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);",
-                  "        const p = JSON.parse(atob(padded));",
-                  "        console.log('=== Internal JWT payload ===', JSON.stringify(p, null, 2));",
-                  "        if (p.sub)         pm.collectionVariables.set('userId',      p.sub);",
-                  "        if (p.role)        pm.collectionVariables.set('role',        p.role);",
-                  "        if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
-                  "        if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
-                  "        if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
-                  "        pm.test('JWT sub (userId) present', () => pm.expect(p.sub).to.be.a('string'));",
-                  "        pm.test('JWT role present',         () => pm.expect(p.role).to.be.a('string'));",
-                  "        pm.test('JWT not expired',          () => pm.expect(p.exp * 1000).to.be.above(Date.now()));",
-                  "        console.log('userId:', p.sub, '| role:', p.role, '| tenantId:', p.tenantId || '(none)');",
-                  "        console.log('expires:', new Date(p.exp * 1000).toISOString());",
+                  "        const b64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');",
+                  "        const p = JSON.parse(atob(b64 + '='.repeat((4 - b64.length%4)%4)));",
+                  "        if (p.sub) pm.collectionVariables.set('userId', p.sub);",
+                  "        pm.test('JWT not expired', () => pm.expect(p.exp*1000).to.be.above(Date.now()));",
+                  "        console.log('userId:', p.sub, '| role:', res.role, '| tenantId:', res.tenantId || '(none)');",
+                  "        if (res.assignedTenants && res.assignedTenants.length) {",
+                  "            console.log('CLIENT_ADMIN assignedTenants:', res.assignedTenants);",
+                  "        }",
                   "    }",
-                  "} catch (e) {",
-                  "    console.error('Could not decode internal JWT:', e.message);",
-                  "}"
+                  "} catch (e) { console.error('Cannot decode JWT:', e.message); }"
                 ]
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
+            "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
             },
-            "description": "## Login — Two Modes\n\nMatches the old-code `OauthTokenFilter` + `TmsAuthenticationSuccessHandler` flow.\n\n---\n\n### MODE 1 — OAuth Bearer token *(old-code behaviour)*\n\nYou already have an OAuth RS256 token from the OAuth server. Pass it as `Authorization: Bearer`:\n\n```\nPOST /api/auth/login\nAuthorization: Bearer <your_oauth_rs256_token>\n(no body required)\n```\n\n**In Postman:** set the `oauthBearerToken` collection variable to your OAuth token. The pre-request script will inject it as the `Authorization` header automatically.\n\n---\n\n### MODE 2 — Username + password *(new convenience flow)*\n\nLet TMS call the OAuth server on your behalf:\n\n```json\nPOST /api/auth/login\n{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}\n```\n\n**In Postman:** leave `oauthBearerToken` empty and set `username` / `password`.\n\n---\n\n### Both modes return the same response (`AuthTokens`):\n\n```json\n{\n  \"accessToken\":  \"<TMS-internal HMAC-SHA256 JWT>\",\n  \"refreshToken\": \"<OAuth refresh token or null>\",\n  \"expiresIn\":    28800,\n  \"tokenType\":    \"Bearer\"\n}\n```\n\n**Use `accessToken` as `Authorization: Bearer` for all subsequent TMS API calls.**\n\nThe test script decodes the internal JWT and saves `userId`, `role`, `tenantId`, etc. as collection variables."
+            "description": "## Login — Two Modes\n\n### MODE 1 — OAuth Bearer token\nSet `oauthBearerToken` collection variable to your OAuth RS256 token.\n\n### MODE 2 — Username + Password\nLeave `oauthBearerToken` empty. Set `username` + `password`.\n\n### Response `LoginResponse`:\n```json\n{\n  \"tmsToken\":       \"<HS256 JWT>\",\n  \"role\":           \"TENANT_ADMIN\",\n  \"tenantId\":       \"uuid-or-null\",\n  \"clientId\":       \"uuid-or-null\",\n  \"subTenantId\":    null,\n  \"assignedTenants\": [\"uuid1\",\"uuid2\"],\n  \"email\":          \"user@example.com\",\n  \"name\":           \"Jane Doe\",\n  \"message\":        null\n}\n```\n\n`assignedTenants` is populated only for `CLIENT_ADMIN`.\nTest script saves `accessToken = tmsToken`."
           }
         },
         {
-          "name": "Token Exchange  (OAuth → TMS token)",
+          "name": "Token Exchange (OAuth RS256 → TMS HS256)",
           "event": [
             {
               "listen": "test",
@@ -236,118 +114,39 @@
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "const res = pm.response.json();",
-                  "pm.test('Has accessToken', () => pm.expect(res.accessToken).to.be.a('string'));",
-                  "if (res.accessToken) pm.collectionVariables.set('accessToken', res.accessToken);",
+                  "pm.test('Has tmsToken', () => pm.expect(res.tmsToken).to.be.a('string'));",
+                  "pm.collectionVariables.set('accessToken', res.tmsToken);",
+                  "if (res.role)        pm.collectionVariables.set('role',        res.role);",
+                  "if (res.tenantId)    pm.collectionVariables.set('tenantId',    res.tenantId);",
+                  "if (res.clientId)    pm.collectionVariables.set('clientId',    res.clientId);",
+                  "if (res.subTenantId) pm.collectionVariables.set('subTenantId', res.subTenantId);",
+                  "if (res.assignedTenants) pm.collectionVariables.set('assignedTenants', JSON.stringify(res.assignedTenants));",
                   "try {",
-                  "    const parts = res.accessToken.split('.');",
-                  "    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
-                  "    const p = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)));",
-                  "    if (p.sub)         pm.collectionVariables.set('userId',      p.sub);",
-                  "    if (p.role)        pm.collectionVariables.set('role',        p.role);",
-                  "    if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
-                  "    if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
-                  "    if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
-                  "    console.log('Exchanged | userId:', p.sub, '| role:', p.role);",
-                  "} catch (e) { console.error('Cannot decode token:', e.message); }"
+                  "    const parts = res.tmsToken.split('.');",
+                  "    const b64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');",
+                  "    const p = JSON.parse(atob(b64 + '='.repeat((4-b64.length%4)%4)));",
+                  "    if (p.sub) pm.collectionVariables.set('userId', p.sub);",
+                  "    console.log('Exchanged | userId:', p.sub, '| role:', res.role);",
+                  "} catch (e) { console.error('Cannot decode:', e.message); }"
                 ]
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
+            "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oauthToken\": \"PASTE_YOUR_OAUTH_RS256_TOKEN_HERE\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/token-exchange",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "token-exchange"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "token-exchange"]
             },
-            "description": "## Token Exchange — OAuth RS256 → TMS HS256\n\nUse this if you **already have an OAuth RS256 access token** obtained directly from the OAuth server and want a TMS-internal JWT.\n\n### When to use\n- You called `{{oauthBaseUrl}}/oauth/token` yourself and got an RS256 token.\n- You tried using the OAuth token as Bearer on a TMS endpoint and got:\n  `Unsupported JWS algorithm RS256, must be HS256`\n\n### Server-side flow\n1. Validates the OAuth token signature (RSA public key).\n2. Upserts the `login` row (first-login creates it; subsequent logins update `last_login_date` / `gtoken`).\n3. Loads user role + tenant context from the `users` table.\n4. Signs a new TMS-internal HMAC-SHA256 JWT with full tenant context.\n5. Returns the internal JWT as `accessToken`.\n\n### Response\n```json\n{\n  \"accessToken\": \"<TMS-internal HS256 JWT>\",\n  \"refreshToken\": null,\n  \"expiresIn\":    28800,\n  \"tokenType\":    \"Bearer\"\n}\n```\n\n> No `refreshToken` is returned because only the OAuth access token was provided. Use `POST /api/auth/login` with username/password for full login with refresh."
-          }
-        },
-        {
-          "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const res = pm.response.json();",
-                  "pm.test('Has new accessToken', () => pm.expect(res.accessToken).to.be.a('string'));",
-                  "if (res.accessToken)  pm.collectionVariables.set('accessToken',  res.accessToken);",
-                  "if (res.refreshToken) pm.collectionVariables.set('refreshToken', res.refreshToken);",
-                  "try {",
-                  "    const parts = res.accessToken.split('.');",
-                  "    if (parts.length === 3) {",
-                  "        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
-                  "        const p = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)));",
-                  "        if (p.role)        pm.collectionVariables.set('role',        p.role);",
-                  "        if (p.tenantId)    pm.collectionVariables.set('tenantId',    p.tenantId);",
-                  "        if (p.clientId)    pm.collectionVariables.set('clientId',    p.clientId);",
-                  "        if (p.subTenantId) pm.collectionVariables.set('subTenantId', p.subTenantId);",
-                  "        console.log('Refreshed | role:', p.role, '| exp:', new Date(p.exp * 1000).toISOString());",
-                  "    }",
-                  "} catch (e) { console.error('Could not decode refreshed JWT:', e.message); }"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\":       \"{{userId}}\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/refresh",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "refresh"
-              ]
-            },
-            "description": "Rotates the OAuth refresh token and re-signs a fresh TMS-internal JWT.\n\nBecause the server re-loads the user from DB, any **role or tenant assignment changes** made by an admin since last login are picked up here.\n\n**Refresh token rotation is enforced** — replaying an old refresh token returns `403` (reuse detection)."
+            "description": "Exchange an OAuth RS256 token for a TMS HS256 internal JWT.\n\nReturns the same `LoginResponse` shape as Login."
           }
         },
         {
@@ -362,11 +161,15 @@
                   "const res = pm.response.json();",
                   "pm.test('Has userId', () => pm.expect(res.userId).to.be.a('string'));",
                   "pm.test('Has email',  () => pm.expect(res.email).to.be.a('string'));",
-                  "pm.test('Has roles',  () => pm.expect(res.roles).to.be.an('array'));",
-                  "if (res.tenantId)    pm.collectionVariables.set('tenantId',    res.tenantId);",
-                  "if (res.clientId)    pm.collectionVariables.set('clientId',    res.clientId);",
-                  "if (res.subTenantId) pm.collectionVariables.set('subTenantId', res.subTenantId);",
-                  "console.log('Me:', res.email, '| userId:', res.userId, '| roles:', res.roles);"
+                  "pm.test('Has roles',  () => pm.expect(res.roles).to.be.an('array').with.length.above(0));",
+                  "if (res.tenantId)        pm.collectionVariables.set('tenantId',        res.tenantId);",
+                  "if (res.clientId)        pm.collectionVariables.set('clientId',        res.clientId);",
+                  "if (res.subTenantId)     pm.collectionVariables.set('subTenantId',     res.subTenantId);",
+                  "if (res.assignedTenants) pm.collectionVariables.set('assignedTenants', JSON.stringify(res.assignedTenants));",
+                  "console.log('Me:', res.email, '| userId:', res.userId, '| roles:', res.roles);",
+                  "if (res.assignedTenants && res.assignedTenants.length) {",
+                  "    console.log('CLIENT_ADMIN tenants:', res.assignedTenants);",
+                  "}"
                 ]
               }
             }
@@ -375,16 +178,10 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
             },
-            "description": "Returns the authenticated user's profile decoded from the TMS-internal JWT.\n\n**Response (`AuthUser`):**\n```json\n{\n  \"userId\": \"auth0|abc123\",\n  \"email\": \"user@example.com\",\n  \"name\": \"Jane Doe\",\n  \"tenantId\": \"550e8400-...\",\n  \"clientId\": \"6ba7b810-...\",\n  \"subTenantId\": null,\n  \"roles\": [\"TENANT_ADMIN\"]\n}\n```"
+            "description": "Returns current user profile decoded from JWT — no DB round-trip.\n\n```json\n{\n  \"userId\":          \"auth0|abc123\",\n  \"email\":           \"user@example.com\",\n  \"name\":            null,\n  \"tenantId\":        \"uuid\",\n  \"clientId\":        \"uuid\",\n  \"subTenantId\":     null,\n  \"roles\":           [\"TENANT_ADMIN\"],\n  \"assignedTenants\": []\n}\n```"
           }
         },
         {
@@ -396,10 +193,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 204', () => pm.response.to.have.status(204));",
-                  "pm.collectionVariables.set('accessToken',  '');",
-                  "pm.collectionVariables.set('refreshToken', '');",
+                  "pm.collectionVariables.set('accessToken', '');",
                   "pm.collectionVariables.set('role', '');",
-                  "console.log('Logged out — tokens cleared.');"
+                  "console.log('Logged out — accessToken cleared.');"
                 ]
               }
             }
@@ -408,22 +204,17 @@
             "method": "POST",
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
             },
-            "description": "Revokes the OAuth refresh token and clears the Redis session.\n\nRequires `Authorization: Bearer {{accessToken}}`.\n\nReturns `204 No Content`."
+            "description": "Returns `204 No Content`. Clears `accessToken` from collection variables."
           }
         }
       ]
     },
     {
       "name": "👥 Users",
+      "description": "**Role restriction:** `CLIENT_ADMIN` can only assign `TENANT_ADMIN`, `SUB_TENANT_ADMIN`, `USER`. Assigning `ADMIN` or `CLIENT_ADMIN` returns `403`.\n\nAfter any role/tenant change the user must **re-login** for the JWT to reflect the change.",
       "item": [
         {
           "name": "List Users",
@@ -431,112 +222,112 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/users?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
               ]
             }
           }
         },
         {
-          "name": "Get Current User (/me)",
+          "name": "Get User by ID",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/users/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users",
-                "me"
-              ]
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUserId}}"]
             }
+          }
+        },
+        {
+          "name": "Get User's Assigned Tenants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}/assigned-tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUserId}}", "assigned-tenants"]
+            },
+            "description": "Returns the list of tenant UUIDs assigned to a `CLIENT_ADMIN` user. Returns `[]` for non-CLIENT_ADMIN."
           }
         },
         {
           "name": "Assign Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has message', () => pm.expect(res.message).to.be.a('string'));",
+                  "console.log('Role assigned:', res.message);"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"role\": \"TENANT_ADMIN\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/role",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users",
-                "{{userId}}",
-                "role"
-              ]
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUserId}}", "role"]
             },
-            "description": "Valid roles: `ADMIN`, `CLIENT_ADMIN`, `TENANT_ADMIN`, `SUBTENANT_USER`, `VIEWER`.\n\nAfter a role change the user must refresh their token for the new role to be embedded in the next internal JWT."
+            "description": "**Valid roles:** `ADMIN`, `CLIENT_ADMIN`, `TENANT_ADMIN`, `SUB_TENANT_ADMIN`, `USER`\n\n**Restriction:** `CLIENT_ADMIN` callers cannot assign `ADMIN` or `CLIENT_ADMIN` → `403`.\n\nUser must re-login after role change."
           }
         },
         {
           "name": "Assign Tenant",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"tenantId\":    \"{{tenantId}}\",\n  \"clientId\":    \"{{clientId}}\",\n  \"subTenantId\": null\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/tenant",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users",
-                "{{userId}}",
-                "tenant"
-              ]
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}/tenant",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUserId}}", "tenant"]
+            },
+            "description": "`subTenantId` is optional — set `null` for TENANT_ADMIN. User must re-login after change."
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('isActive is false', () => pm.expect(res.active).to.equal(false));",
+                  "console.log('Deactivated user:', res.id);"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUserId}}", "deactivate"]
+            },
+            "description": "Sets `isActive = false`. Deactivated users cannot log in — LoginService returns `403` on next login attempt."
           }
         }
       ]
@@ -550,24 +341,9 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/clients?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "clients"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
             }
           }
         },
@@ -575,120 +351,40 @@
           "name": "Get Client",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "clients",
-                "{{clientId}}"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","clients","{{clientId}}"] }
           }
         },
         {
           "name": "Create Client",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('clientId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('clientId', res.id);","console.log('Created client:', res.id);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Parking Co.\",\n  \"plan\": \"STANDARD\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/clients",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "clients"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Acme Parking Co.\",\n  \"plan\": \"STANDARD\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/clients", "host": ["{{baseUrl}}"], "path": ["api","v1","clients"] }
           }
         },
         {
           "name": "Update Client",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Parking Co. (Updated)\",\n  \"plan\": \"ENTERPRISE\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "clients",
-                "{{clientId}}"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Acme Parking Co. (Updated)\",\n  \"plan\": \"ENTERPRISE\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","clients","{{clientId}}"] }
           }
         },
         {
           "name": "Delete Client",
           "request": {
             "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "clients",
-                "{{clientId}}"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","clients","{{clientId}}"] }
           }
         }
       ]
     },
     {
       "name": "🏗️ Tenants",
+      "description": "**Scoping:** `ADMIN` sees all. `CLIENT_ADMIN` sees only `assignedTenants` (or clientId fallback). Creating a tenant auto-assigns the `CLIENT_ADMIN` caller.\n\nAfter assign/unassign-admin the target user must re-login.",
       "item": [
         {
           "name": "List Tenants",
@@ -696,24 +392,9 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
             }
           }
         },
@@ -721,136 +402,73 @@
           "name": "Get Tenant",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants",
-                "{{tenantId}}"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
           }
         },
         {
           "name": "Create Tenant",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('tenantId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('tenantId', res.id);","console.log('Created tenant:', res.id, res.name);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Downtown Parkade\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Downtown Parkade\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] },
+            "description": "`clientId` optional for `CLIENT_ADMIN` (defaults to their own). New tenant is auto-added to `CLIENT_ADMIN`'s `assignedTenants`."
           }
         },
         {
           "name": "Update Tenant",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Downtown Parkade (Updated)\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants",
-                "{{tenantId}}"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Downtown Parkade (Updated)\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
           }
         },
         {
           "name": "Delete Tenant",
           "request": {
             "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
+          }
+        },
+        {
+          "name": "Assign CLIENT_ADMIN to Tenant  🔒 ADMIN only",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const res = pm.response.json();","pm.test('Has message', () => pm.expect(res.message).to.be.a('string'));","console.log(res.message);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{targetUserId}}\"\n}", "options": { "raw": { "language": "json" } } },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants",
-                "{{tenantId}}"
-              ]
-            }
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/assign-admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}", "assign-admin"]
+            },
+            "description": "**ADMIN only.** Grants a `CLIENT_ADMIN` user access to this tenant via `client_admin_tenants` table.\n\nIdempotent. User must re-login for change to take effect.\n\n**Response:** `{ \"message\": \"Admin assigned. User must re-login for changes to take effect.\" }`"
+          }
+        },
+        {
+          "name": "Unassign CLIENT_ADMIN from Tenant  🔒 ADMIN only",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","console.log(pm.response.json().message);"] } }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{targetUserId}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/unassign-admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}", "unassign-admin"]
+            },
+            "description": "**ADMIN only.** Removes CLIENT_ADMIN access. User must re-login."
           }
         },
         {
           "name": "Get Branding (Public — no auth)",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
+            "auth": { "type": "noauth" },
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants",
-                "{{tenantId}}",
-                "branding"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}","branding"] },
+            "description": "No auth required. Returns `{ logoUrl, primaryColor, accentColor }`."
           }
         },
         {
@@ -860,37 +478,12 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "logoFile",
-                  "type": "file",
-                  "src": "",
-                  "description": "Optional logo image file"
-                },
-                {
-                  "key": "primaryColor",
-                  "value": "#1A73E8",
-                  "type": "text"
-                },
-                {
-                  "key": "accentColor",
-                  "value": "#FFA726",
-                  "type": "text"
-                }
+                { "key": "logoFile",     "type": "file",  "src": "",          "description": "Optional PNG/JPG logo" },
+                { "key": "primaryColor", "type": "text",  "value": "#1A73E8" },
+                { "key": "accentColor",  "type": "text",  "value": "#FFA726" }
               ]
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "tenants",
-                "{{tenantId}}",
-                "branding"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/branding", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}","branding"] }
           }
         }
       ]
@@ -904,145 +497,38 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/sub-tenants?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "sub-tenants"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                },
-                {
-                  "key": "tenantId",
-                  "value": "{{tenantId}}",
-                  "disabled": true
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","sub-tenants"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "tenantId", "value": "{{tenantId}}", "disabled": true }]
             }
           }
         },
         {
           "name": "Get Sub-Tenant",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "sub-tenants",
-                "{{subTenantId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sub-tenants","{{subTenantId}}"] } }
         },
         {
           "name": "Create Sub-Tenant",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('subTenantId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('subTenantId', res.id);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Level B1\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/sub-tenants",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "sub-tenants"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Level B1\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/sub-tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","sub-tenants"] }
           }
         },
         {
           "name": "Update Sub-Tenant",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Level B1 (Updated)\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "sub-tenants",
-                "{{subTenantId}}"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Level B1 (Updated)\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sub-tenants","{{subTenantId}}"] }
           }
         },
         {
           "name": "Delete Sub-Tenant",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "sub-tenants",
-                "{{subTenantId}}"
-              ]
-            }
-          }
+          "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/sub-tenants/{{subTenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sub-tenants","{{subTenantId}}"] } }
         }
       ]
     },
@@ -1055,150 +541,44 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/zones?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "zones"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                },
-                {
-                  "key": "tenantId",
-                  "value": "{{tenantId}}",
-                  "disabled": true
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","zones"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "tenantId", "value": "{{tenantId}}", "disabled": true }]
             }
           }
         },
         {
           "name": "Get Zone",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "zones",
-                "{{zoneId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","zones","{{zoneId}}"] } }
         },
         {
           "name": "Create Zone",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('zoneId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('zoneId', res.id);","console.log('Created zone:', res.id, res.name);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor\",\n  \"defaultDurationMinutes\": 60,\n  \"maxDurationMinutes\": 240\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/zones",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "zones"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor\",\n  \"defaultDurationMinutes\": 60,\n  \"maxDurationMinutes\": 240\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/zones", "host": ["{{baseUrl}}"], "path": ["api","v1","zones"] }
           }
         },
         {
           "name": "Update Zone",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor (Updated)\",\n  \"defaultDurationMinutes\": 90,\n  \"maxDurationMinutes\": 300\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "zones",
-                "{{zoneId}}"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"zoneNumber\": \"A1\",\n  \"name\": \"Zone A1 - Ground Floor (Updated)\",\n  \"defaultDurationMinutes\": 90,\n  \"maxDurationMinutes\": 300\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","zones","{{zoneId}}"] }
           }
         },
         {
           "name": "Delete Zone",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "zones",
-                "{{zoneId}}"
-              ]
-            }
-          }
+          "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/zones/{{zoneId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","zones","{{zoneId}}"] } }
         }
       ]
     },
     {
       "name": "⚙️ Quota Configs",
+      "description": "**period:** `DAY`, `WEEK`, `MONTH`\n\n**maxCount = 0** means unlimited.\n\nCounters live in Redis and expire at period boundary.",
       "item": [
         {
           "name": "List Quota Configs",
@@ -1206,127 +586,41 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/quota-configs?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "quota-configs"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","quota-configs"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
             }
           }
         },
         {
           "name": "Get Quota Config",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "quota-configs",
-                "{{quotaConfigId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","quota-configs","{{quotaConfigId}}"] } }
         },
         {
           "name": "Create Quota Config",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('quotaConfigId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('quotaConfigId', res.id);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"clientId\": \"{{clientId}}\",\n  \"subTenantId\": null,\n  \"scope\": \"TENANT\",\n  \"period\": \"DAILY\",\n  \"maxCount\": 500\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/quota-configs",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "quota-configs"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"tenantId\":    \"{{tenantId}}\",\n  \"clientId\":    \"{{clientId}}\",\n  \"subTenantId\": null,\n  \"period\":      \"DAY\",\n  \"maxCount\":    500\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/quota-configs", "host": ["{{baseUrl}}"], "path": ["api","v1","quota-configs"] },
+            "description": "`maxCount: 0` = unlimited. Exceeding quota → `422 QUOTA_EXCEEDED`."
           }
         },
         {
           "name": "Update Quota Config",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"maxCount\": 1000,\n  \"scope\": \"TENANT\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "quota-configs",
-                "{{quotaConfigId}}"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"maxCount\": 1000\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/quota-configs/{{quotaConfigId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","quota-configs","{{quotaConfigId}}"] }
           }
         }
       ]
     },
     {
       "name": "🔗 QR Links",
+      "description": "HMAC-SHA256 signed tokens for public (no-auth) validation.\n\nExpired/tampered tokens → `422 LINK_EXPIRED` or `401 INVALID_TOKEN`.",
       "item": [
         {
           "name": "List Links",
@@ -1334,155 +628,48 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/links?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","links"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
             }
           }
         },
         {
           "name": "Get Link",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links",
-                "{{linkId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/links/{{linkId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","links","{{linkId}}"] } }
         },
         {
           "name": "Get Link by Token (Public — no auth)",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
+            "auth": { "type": "noauth" },
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/links/by-token/{{linkToken}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links",
-                "by-token",
-                "{{linkToken}}"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/links/by-token/{{linkToken}}", "host": ["{{baseUrl}}"], "path": ["api","v1","links","by-token","{{linkToken}}"] }
           }
         },
         {
           "name": "Create Link",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "const res = pm.response.json();",
-                  "if (res.id)    pm.collectionVariables.set('linkId',    res.id);",
-                  "if (res.token) pm.collectionVariables.set('linkToken', res.token);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));","const res = pm.response.json();","if (res.id)    pm.collectionVariables.set('linkId',    res.id);","if (res.token) pm.collectionVariables.set('linkToken', res.token);","console.log('Created link:', res.id, '| token saved');"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"zoneId\": \"{{zoneId}}\",\n  \"linkType\": \"PERMANENT\",\n  \"label\": \"Entrance Gate QR\",\n  \"defaultDurationMinutes\": 60,\n  \"expiresAt\": null\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/links",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"zoneId\":                 \"{{zoneId}}\",\n  \"linkType\":               \"QR\",\n  \"label\":                  \"Entrance Gate QR\",\n  \"defaultDurationMinutes\": 60,\n  \"expiresAt\":              null\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/links", "host": ["{{baseUrl}}"], "path": ["api","v1","links"] },
+            "description": "**linkType:** `QR` or `URL`\n\n**expiresAt:** ISO-8601 or `null` for permanent.\n\nThe `token` in the response is the HMAC-SHA256 signed QR token."
           }
         },
         {
           "name": "Deactivate Link",
-          "request": {
-            "method": "PUT",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/deactivate",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links",
-                "{{linkId}}",
-                "deactivate"
-              ]
-            }
-          }
+          "request": { "method": "PUT", "url": { "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/deactivate", "host": ["{{baseUrl}}"], "path": ["api","v1","links","{{linkId}}","deactivate"] } }
         },
         {
           "name": "Download QR PDF",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/qr-pdf",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "links",
-                "{{linkId}}",
-                "qr-pdf"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/links/{{linkId}}/qr-pdf", "host": ["{{baseUrl}}"], "path": ["api","v1","links","{{linkId}}","qr-pdf"] }, "description": "Returns `application/pdf` containing the QR code." }
         }
       ]
     },
     {
       "name": "✅ Validations",
+      "description": "**Status lifecycle:** `ACTIVE` → `EXTENDED` → `EXPIRED` (scheduler) | `CANCELLED`\n\n**Duplicate guard (new):** Creating a session for a plate with existing `ACTIVE`/`EXTENDED` session → `422 ALREADY_VALIDATED`.\n\n**Extend guard (fixed):** Total time from `startTime` must not exceed `zone.maxDurationMinutes` → `422 LINK_EXPIRED`.",
       "item": [
         {
           "name": "List Validations",
@@ -1490,69 +677,23 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/validations?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","validations"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                },
-                {
-                  "key": "status",
-                  "value": "ACTIVE",
-                  "disabled": true
-                },
-                {
-                  "key": "zoneId",
-                  "value": "{{zoneId}}",
-                  "disabled": true
-                },
-                {
-                  "key": "licensePlate",
-                  "value": "ABC123",
-                  "disabled": true
-                },
-                {
-                  "key": "from",
-                  "value": "2026-05-01T00:00:00Z",
-                  "disabled": true
-                },
-                {
-                  "key": "to",
-                  "value": "2026-05-31T23:59:59Z",
-                  "disabled": true
-                }
+                { "key": "page",         "value": "0" },
+                { "key": "size",         "value": "20" },
+                { "key": "status",       "value": "ACTIVE",               "disabled": true },
+                { "key": "zoneId",       "value": "{{zoneId}}",           "disabled": true },
+                { "key": "licensePlate", "value": "ABC123",               "disabled": true },
+                { "key": "from",         "value": "2026-05-01T00:00:00Z", "disabled": true },
+                { "key": "to",           "value": "2026-05-31T23:59:59Z", "disabled": true }
               ]
             }
           }
         },
         {
           "name": "Get Validation",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations",
-                "{{validationId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","validations","{{validationId}}"] } }
         },
         {
           "name": "Create Validation (Staff)",
@@ -1562,131 +703,84 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (pm.response.code === 422) {",
+                  "    const res = pm.response.json();",
+                  "    console.warn('422:', res.code, '-', res.message);",
+                  "    return;",
+                  "}",
                   "pm.test('Status 201', () => pm.response.to.have.status(201));",
                   "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('validationId', res.id);"
+                  "if (res.id) pm.collectionVariables.set('validationId', res.id);",
+                  "console.log('Session created:', res.id, '| plate:', res.licensePlate, '| status:', res.status);"
                 ]
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"zoneId\": \"{{zoneId}}\",\n  \"licensePlate\": \"ABC123\",\n  \"durationMinutes\": 60,\n  \"endUserEmail\": \"driver@example.com\",\n  \"endUserPhone\": null\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/validations",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"zoneId\":          \"{{zoneId}}\",\n  \"licensePlate\":    \"ABC123\",\n  \"durationMinutes\": 60,\n  \"endUserEmail\":    \"driver@example.com\",\n  \"endUserPhone\":    null\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/validations", "host": ["{{baseUrl}}"], "path": ["api","v1","validations"] },
+            "description": "**Duplicate guard:** `422 ALREADY_VALIDATED` if plate already has ACTIVE/EXTENDED session.\n\n**Quota check:** `422 QUOTA_EXCEEDED` if tenant limit reached.\n\n**durationMinutes** capped at `zone.maxDurationMinutes`."
           }
         },
         {
-          "name": "Create Validation via QR (Public — no auth)",
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Create Validation via QR Token (Public — no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 422) { console.warn('422:', pm.response.json().code); return; }",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('validationId', res.id);",
+                  "console.log('Public session:', res.id, '| plate:', res.licensePlate);"
+                ]
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"licensePlate\": \"ABC123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/validations/public/{{linkToken}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations",
-                "public",
-                "{{linkToken}}"
-              ]
             }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"licensePlate\": \"ABC123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/validations/public/{{linkToken}}", "host": ["{{baseUrl}}"], "path": ["api","v1","validations","public","{{linkToken}}"] },
+            "description": "No auth — HMAC token provides context.\n\n**422 codes:** `ALREADY_VALIDATED`, `LINK_EXPIRED`, `QUOTA_EXCEEDED`\n\n**401:** `INVALID_TOKEN` (tampered/malformed token)"
           }
         },
         {
           "name": "Extend Validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 422) { console.warn('Cannot extend:', pm.response.json().message); return; }",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Status is EXTENDED', () => pm.expect(res.status).to.equal('EXTENDED'));",
+                  "console.log('Extended to:', res.endTime);"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"extraMinutes\": 30\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/extend",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations",
-                "{{validationId}}",
-                "extend"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"extraMinutes\": 30\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/extend", "host": ["{{baseUrl}}"], "path": ["api","v1","validations","{{validationId}}","extend"] },
+            "description": "**Max duration guard:** `(endTime + extraMinutes) - startTime` must not exceed `zone.maxDurationMinutes`. Returns `422 LINK_EXPIRED` otherwise."
           }
         },
         {
           "name": "Cancel Validation",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('CANCELLED', () => pm.expect(pm.response.json().status).to.equal('CANCELLED'));"] } }],
           "request": {
             "method": "PUT",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/cancel",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "validations",
-                "{{validationId}}",
-                "cancel"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/cancel", "host": ["{{baseUrl}}"], "path": ["api","v1","validations","{{validationId}}","cancel"] }
           }
         }
       ]
@@ -1700,88 +794,25 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/reports?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "reports"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                }
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","reports"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
             }
           }
         },
         {
           "name": "Get Report Job",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/reports/{{reportJobId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "reports",
-                "{{reportJobId}}"
-              ]
-            }
-          }
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/reports/{{reportJobId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","{{reportJobId}}"] }, "description": "Poll until `status = COMPLETED`. Then use `downloadUrl` (signed S3 URL)." }
         },
         {
           "name": "Queue Report",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
-                  "const res = pm.response.json();",
-                  "if (res.id) pm.collectionVariables.set('reportJobId', res.id);"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const res = pm.response.json();","if (res.id) pm.collectionVariables.set('reportJobId', res.id);","console.log('Report queued:', res.id, '| type:', res.reportType);"] } }],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reportType\": \"VALIDATIONS_SUMMARY\",\n  \"format\": \"EXCEL\",\n  \"filters\": {\n    \"from\": \"2026-05-01T00:00:00Z\",\n    \"to\":   \"2026-05-31T23:59:59Z\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/reports",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "reports"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reportType\": \"VALIDATIONS_SUMMARY\",\n  \"format\":     \"EXCEL\",\n  \"filters\": {\n    \"from\": \"2026-05-01T00:00:00Z\",\n    \"to\":   \"2026-05-31T23:59:59Z\"\n  }\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/reports", "host": ["{{baseUrl}}"], "path": ["api","v1","reports"] },
+            "description": "**reportType:** `VALIDATIONS_SUMMARY`, `QUOTA_USAGE`\n\n**format:** `EXCEL`, `CSV`"
           }
         }
       ]
@@ -1795,43 +826,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/audit-logs?page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "audit-logs"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","audit-logs"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "0"
-                },
-                {
-                  "key": "size",
-                  "value": "20"
-                },
-                {
-                  "key": "action",
-                  "value": "CREATE",
-                  "disabled": true
-                },
-                {
-                  "key": "entityType",
-                  "value": "VALIDATION",
-                  "disabled": true
-                },
-                {
-                  "key": "from",
-                  "value": "2026-05-01T00:00:00Z",
-                  "disabled": true
-                },
-                {
-                  "key": "to",
-                  "value": "2026-05-31T23:59:59Z",
-                  "disabled": true
-                }
+                { "key": "page",       "value": "0" },
+                { "key": "size",       "value": "20" },
+                { "key": "action",     "value": "CREATE",                "disabled": true },
+                { "key": "entityType", "value": "VALIDATION",            "disabled": true },
+                { "key": "from",       "value": "2026-05-01T00:00:00Z",  "disabled": true },
+                { "key": "to",         "value": "2026-05-31T23:59:59Z",  "disabled": true }
               ]
             }
           }
@@ -1843,40 +846,59 @@
       "item": [
         {
           "name": "Health Check",
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/actuator/health",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "actuator",
-                "health"
-              ]
-            }
-          }
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator","health"] } }
         },
         {
           "name": "Info",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{baseUrl}}/actuator/info", "host": ["{{baseUrl}}"], "path": ["actuator","info"] } }
+        }
+      ]
+    },
+    {
+      "name": "🧪 Error Scenarios",
+      "description": "Pre-built requests to verify correct error handling. Run these after setting up seed data to verify guards work.",
+      "item": [
+        {
+          "name": "Duplicate Session (expect 422 ALREADY_VALIDATED)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));","pm.test('code is ALREADY_VALIDATED', () => pm.expect(pm.response.json().code).to.equal('ALREADY_VALIDATED'));","console.log('Correctly blocked:', pm.response.json().message);"] } }],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"zoneId\":          \"{{zoneId}}\",\n  \"licensePlate\":    \"ABC123\",\n  \"durationMinutes\": 60\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/validations", "host": ["{{baseUrl}}"], "path": ["api","v1","validations"] },
+            "description": "First run **Create Validation** for plate `ABC123`. Then run this — expect `422 ALREADY_VALIDATED`."
+          }
+        },
+        {
+          "name": "Extend Beyond Max Duration (expect 422 LINK_EXPIRED)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));","pm.test('code is LINK_EXPIRED', () => pm.expect(pm.response.json().code).to.equal('LINK_EXPIRED'));","console.log('Over-extend blocked:', pm.response.json().message);"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"extraMinutes\": 9999\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/validations/{{validationId}}/extend", "host": ["{{baseUrl}}"], "path": ["api","v1","validations","{{validationId}}","extend"] },
+            "description": "9999 minutes always exceeds any zone maxDurationMinutes. Expect `422 LINK_EXPIRED`."
+          }
+        },
+        {
+          "name": "CLIENT_ADMIN Assign Forbidden Role (expect 403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 403', () => pm.response.to.have.status(403));","console.log('Role escalation blocked.');"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"ADMIN\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/v1/users/{{targetUserId}}/role", "host": ["{{baseUrl}}"], "path": ["api","v1","users","{{targetUserId}}","role"] },
+            "description": "Login as `CLIENT_ADMIN`, then run. Expect `403`."
+          }
+        },
+        {
+          "name": "No Token (expect 401 INVALID_TOKEN)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));","pm.test('code is INVALID_TOKEN', () => pm.expect(pm.response.json().code).to.equal('INVALID_TOKEN'));"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/actuator/info",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "actuator",
-                "info"
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/validations", "host": ["{{baseUrl}}"], "path": ["api","v1","validations"] },
+            "description": "No Authorization header. Expect `401 INVALID_TOKEN`."
           }
         }
       ]

@@ -30,6 +30,18 @@ public interface ValidationRepository
     Optional<ValidationSession> findByIdAndIsDeletedFalse(UUID id);
 
     /**
+     * Duplicate check before creating a new session:
+     * plate already has an ACTIVE or EXTENDED session for this tenant.
+     */
+    @Query("SELECT vs FROM ValidationSession vs " +
+           "WHERE vs.licensePlate = :plate AND vs.tenantId = :tenantId " +
+           "AND vs.status IN :statuses AND vs.isDeleted = false")
+    List<ValidationSession> findActiveByPlateAndTenant(
+            @Param("plate") String plate,
+            @Param("tenantId") UUID tenantId,
+            @Param("statuses") List<String> statuses);
+
+    /**
      * Used by SessionExpiryScheduler — finds ACTIVE sessions whose end_time
      * is between now and now+30 min (across all tenants — no filter applied here).
      */

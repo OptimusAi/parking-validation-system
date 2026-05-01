@@ -2,8 +2,10 @@ package ca.optimusAI.pv.validation;
 
 import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.shared.TenantContext;
+import ca.optimusAI.pv.shared.exception.DuplicateSessionException;
 import ca.optimusAI.pv.shared.exception.DuplicateValidationException;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
+import ca.optimusAI.pv.shared.exception.LinkExpiredException;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
 import ca.optimusAI.pv.tenant.entity.Zone;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -63,6 +66,14 @@ public class ValidationService {
         Zone zone = zoneRepository.findById(req.zoneId())
                 .filter(z -> !z.isDeleted() && z.isActive())
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + req.zoneId()));
+
+        // Duplicate session check — BEFORE quota enforcement
+        List<ValidationSession> existing = validationRepository.findActiveByPlateAndTenant(
+                req.licensePlate().toUpperCase(), tenantId, List.of("ACTIVE", "EXTENDED"));
+        if (!existing.isEmpty()) {
+            throw new DuplicateSessionException(
+                    "License plate " + req.licensePlate() + " already has an active session");
+        }
 
         // Enforce quota (throws QuotaExceededException → 422)
         quotaService.enforce(tenantId, TenantContext.get().subTenantId(), req.licensePlate());
@@ -149,11 +160,10 @@ public class ValidationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + session.getZoneId()));
 
         Instant newEnd = session.getEndTime().plusSeconds((long) extraMinutes * 60);
-        long totalSeconds = newEnd.getEpochSecond() - session.getStartTime().getEpochSecond();
-        long maxSeconds   = (long) zone.getMaxDurationMinutes() * 60;
+        long totalMinutes = (newEnd.getEpochSecond() - session.getStartTime().getEpochSecond()) / 60;
 
-        if (totalSeconds > maxSeconds) {
-            throw new DuplicateValidationException(
+        if (totalMinutes > zone.getMaxDurationMinutes()) {
+            throw new LinkExpiredException(
                     "Extension would exceed max duration of " + zone.getMaxDurationMinutes() + " minutes");
         }
 

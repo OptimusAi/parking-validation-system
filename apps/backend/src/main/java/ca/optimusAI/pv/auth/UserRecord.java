@@ -1,12 +1,12 @@
 package ca.optimusAI.pv.auth;
 
-import ca.optimusAI.pv.user.entity.User;
+import ca.optimusAI.pv.user.entity.AppUser;
 
 import java.util.UUID;
 
 public record UserRecord(
         UUID id,
-        String auth0UserId,
+        String authProviderUserId,
         String email,
         String name,
         UUID tenantId,
@@ -15,10 +15,10 @@ public record UserRecord(
         String role,
         boolean isActive
 ) {
-    public static UserRecord from(User user) {
+    public static UserRecord from(AppUser user) {
         return new UserRecord(
                 user.getId(),
-                user.getAuth0UserId(),
+                user.getAuthProviderUserId(),
                 user.getEmail(),
                 user.getName(),
                 user.getTenantId(),

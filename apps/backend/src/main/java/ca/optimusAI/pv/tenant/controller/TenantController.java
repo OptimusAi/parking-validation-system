@@ -89,4 +89,28 @@ public class TenantController {
     ) {}
 
     public record UpdateTenantRequest(String name) {}
+
+    // ── CLIENT_ADMIN assignment endpoints (ADMIN only) ────────────────────────
+
+    @PostMapping("/{tenantId}/assign-admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.Map<String, String>> assignAdmin(
+            @PathVariable UUID tenantId,
+            @RequestBody AssignAdminRequest req) {
+        tenantService.assignAdmin(tenantId, req.userId());
+        return ResponseEntity.ok(java.util.Map.of(
+                "message", "Admin assigned. User must re-login for changes to take effect."));
+    }
+
+    @DeleteMapping("/{tenantId}/unassign-admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.Map<String, String>> unassignAdmin(
+            @PathVariable UUID tenantId,
+            @RequestBody AssignAdminRequest req) {
+        tenantService.unassignAdmin(tenantId, req.userId());
+        return ResponseEntity.ok(java.util.Map.of(
+                "message", "Admin unassigned. User must re-login for changes to take effect."));
+    }
+
+    public record AssignAdminRequest(UUID userId) {}
 }

@@ -1,7 +1,7 @@
 package ca.optimusAI.pv.auth;
 
-import ca.optimusAI.pv.user.entity.User;
-import ca.optimusAI.pv.user.repository.UserRepository;
+import ca.optimusAI.pv.user.entity.AppUser;
+import ca.optimusAI.pv.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,37 +21,36 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserProvisioner {
 
-    private final UserRepository userRepository;
+    private final AppUserRepository userRepository;
 
     /**
-     * Returns the existing user for {@code auth0UserId}, or creates a new one
-     * with role SUBTENANT_USER if this is the user's very first login.
+     * Returns the existing user for {@code authProviderUserId}, or creates a new one
+     * with role USER if this is the user's very first login.
      *
      * <p>If two requests race for the same new user, the losing thread catches
      * the duplicate-key exception and re-fetches the record the winning thread
      * already committed.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public User findOrCreate(String auth0UserId, String email, String name) {
-        return userRepository.findByAuth0UserId(auth0UserId).orElseGet(() -> {
-            log.info("First login for auth0UserId={}; creating SUBTENANT_USER", auth0UserId);
-            User newUser = User.builder()
-                    .auth0UserId(auth0UserId)
+    public AppUser findOrCreate(String authProviderUserId, String email, String name) {
+        return userRepository.findByAuthProviderUserId(authProviderUserId).orElseGet(() -> {
+            log.info("First login for authProviderUserId={}; creating USER", authProviderUserId);
+            AppUser newUser = AppUser.builder()
+                    .authProviderUserId(authProviderUserId)
                     .email(email)
                     .name(name)
-                    .role("SUBTENANT_USER")
+                    .role("USER")
                     .isActive(true)
                     .build();
             try {
                 return userRepository.saveAndFlush(newUser);
             } catch (DataIntegrityViolationException e) {
                 // Race condition: another thread already committed this user.
-                // Simply re-fetch the record it created.
-                log.debug("Concurrent first-login for auth0UserId={}; re-fetching existing record",
-                        auth0UserId);
-                return userRepository.findByAuth0UserId(auth0UserId)
+                log.debug("Concurrent first-login for authProviderUserId={}; re-fetching existing record",
+                        authProviderUserId);
+                return userRepository.findByAuthProviderUserId(authProviderUserId)
                         .orElseThrow(() -> new IllegalStateException(
-                                "User absent after duplicate-key violation for: " + auth0UserId, e));
+                                "User absent after duplicate-key violation for: " + authProviderUserId, e));
             }
         });
     }

@@ -1,6 +1,6 @@
 package ca.optimusAI.pv.auth.entity;
 
-import ca.optimusAI.pv.user.entity.User;
+import ca.optimusAI.pv.user.entity.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -52,7 +52,7 @@ public class Login {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "login_user_fk"))
-    private User user;
+    private AppUser user;
 
     /** Stores the OAuth gtoken/access-token returned by the identity provider. */
     @Column(columnDefinition = "TEXT")

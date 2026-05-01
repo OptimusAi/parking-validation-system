@@ -6,26 +6,35 @@ import lombok.*;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Application user — persisted in the app_user table.
+ *
+ * auth_provider_user_id links back to the OAuth provider's subject claim (sub).
+ * role is one of: ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUB_TENANT_ADMIN | USER
+ *
+ * New users get role=USER and null tenant/client/subTenant — an ADMIN must
+ * promote them via PUT /api/v1/users/{id}/role + PUT /api/v1/users/{id}/tenant.
+ */
 @Entity
-@Table(name = "users")
+@Table(name = "app_user")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class AppUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "auth0_user_id", nullable = false, unique = true, length = 100)
-    private String auth0UserId;
+    @Column(name = "auth_provider_user_id", nullable = false, unique = true, length = 200)
+    private String authProviderUserId;
 
-    @Column(length = 255)
+    @Column(length = 200)
     private String email;
 
-    @Column(length = 255)
+    @Column(length = 200)
     private String name;
 
     @Column(name = "tenant_id")
@@ -37,9 +46,10 @@ public class User {
     @Column(name = "sub_tenant_id")
     private UUID subTenantId;
 
+    /** ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUB_TENANT_ADMIN | USER */
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String role = "SUBTENANT_USER";
+    private String role = "USER";
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

@@ -11,5 +11,5 @@ public record AuthUser(
         UUID clientId,
         UUID subTenantId,
         List<String> roles,
-        String accessToken
+        List<UUID> assignedTenants
 ) {}

@@ -23,4 +23,7 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     Optional<Tenant> findByIdAndIsDeletedFalse(UUID id);
 
     List<Tenant> findAllByClientIdAndIsDeletedFalse(UUID clientId);
+
+    /** Used by CLIENT_ADMIN multi-tenant: list tenants by their assigned tenant IDs. */
+    Page<Tenant> findAllByIdInAndIsDeletedFalse(List<UUID> ids, Pageable pageable);
 }

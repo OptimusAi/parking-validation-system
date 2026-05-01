@@ -27,6 +27,9 @@ public class ValidationLink {
     @Column(name = "client_id", nullable = false)
     private UUID clientId;
 
+    @Column(name = "sub_tenant_id")
+    private UUID subTenantId;
+
     @Column(name = "zone_id", nullable = false)
     private UUID zoneId;
 

@@ -1,0 +1,58 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///tms_parking_test?TC_REUSABLE=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+tms:
+  jwt:
+    secret: test-tms-jwt-secret-min-32-chars-for-tests
+    expiry-hours: 8
+  qr:
+    hmac-secret: test-qr-hmac-secret-min-32-chars-for-tests
+
+oauth:
+  jwks-uri: ${JWKS_URI:https://fake.test/jwks}
+  public-key-path: classpath:tms-jwt-pub.jks
+  audiences:
+    - test-audience
+
+aws:
+  region: ca-central-1
+  s3:
+    bucket: test-bucket
+  ses:
+    from-email: test@test.com
+
+twilio:
+  account-sid: test
+  auth-token: test
+  sms-from: "+10000000000"
+
+redis:
+  quota:
+    daily-ttl-seconds: 86400
+
+logging:
+  level:
+    ca.optimusAI: DEBUG

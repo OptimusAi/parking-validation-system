@@ -19,26 +19,15 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
-
-
 /**
- * Intercepts every request that carries a Bearer token.
+ * Validates the TMS HS256 Bearer token on every request.
  *
- * Flow (post token-switch):
- *   1. Extract "Authorization: Bearer <internalToken>" header.
- *   2. Validate the HMAC-SHA256 signature + expiry via InternalTokenService.
- *   3. Populate TenantContext directly from the token claims — no DB/Redis hit.
- *   4. Populate Spring SecurityContext (used by @PreAuthorize).
- *   5. Clear TenantContext in the finally block — always.
- *
- * The token is the TMS-internal JWT signed at login time by InternalTokenService,
- * NOT the raw OAuth server token. The token-switch happens in AuthController.login().
- *
- * Requests without a Bearer header are passed through unchanged.
- *
- * Public auth paths (login, refresh, token-exchange) are skipped entirely so that
- * callers can pass an OAuth RS256 Bearer token directly to those endpoints without
- * the filter trying to validate it as an HS256 internal token.
+ * Flow:
+ *   1. Extract "Authorization: Bearer <tmsToken>" header.
+ *   2. Validate HMAC-SHA256 signature + expiry via TmsTokenService.
+ *   3. Populate TenantContext from token claims — no DB/Redis round-trip.
+ *   4. Populate Spring SecurityContext for @PreAuthorize.
+ *   5. Clear TenantContext in finally block — always.
  */
 @Component
 @RequiredArgsConstructor
@@ -46,13 +35,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> SKIP_PATHS = List.of(
             "/api/auth/login",
-            "/api/auth/refresh",
             "/api/auth/token-exchange"
     );
 
-    private final InternalTokenService internalTokenService;
+    private final TmsTokenService tmsTokenService;
 
-    /** Skip JWT validation for public auth endpoints. */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
@@ -74,23 +61,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = header.substring(7);
 
+            TmsTokenClaims claims = tmsTokenService.verify(token);
 
-            // Validate TMS-internal JWT (HMAC-SHA256) and extract full tenant context
-            InternalClaims claims = internalTokenService.verify(token);
-
-            // Populate TenantContext directly from claims — no DB round-trip needed
             TenantContext.set(new TenantInfo(
                     claims.tenantId(),
                     claims.clientId(),
                     claims.subTenantId(),
                     claims.userId(),
                     claims.email(),
-                    List.of(claims.role() != null ? claims.role() : "SUBTENANT_USER")
+                    List.of(claims.role() != null ? claims.role() : "USER"),
+                    claims.assignedTenants() != null ? claims.assignedTenants() : List.of()
             ));
 
-            // Populate Spring SecurityContext for @PreAuthorize
             var authorities = List.of(new SimpleGrantedAuthority(
-                    "ROLE_" + (claims.role() != null ? claims.role() : "SUBTENANT_USER")));
+                    "ROLE_" + (claims.role() != null ? claims.role() : "USER")));
             var authentication = new UsernamePasswordAuthenticationToken(
                     claims.userId(), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -99,9 +83,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (InvalidTokenException e) {
             SecurityContextHolder.clearContext();
+            TenantContext.clear();
             writeUnauthorized(res, e.getMessage());
         } finally {
-            // Always clear — must not leak across virtual-thread reuse
             TenantContext.clear();
         }
     }

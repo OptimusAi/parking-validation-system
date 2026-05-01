@@ -16,11 +16,11 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
-import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import java.util.Date;
+import java.util.Enumeration;
 
 /**
  * OAuth 2.0 password-grant adapter.
@@ -60,18 +60,24 @@ public class OAuthAdapter {
     void loadPublicKey() {
         try {
             Resource resource = applicationContext.getResource(publicKeyPath);
-            String pem = new String(resource.getInputStream().readAllBytes());
-            // Strip PEM headers/footers and all whitespace
-            String base64 = pem
-                    .replaceAll("-----BEGIN PUBLIC KEY-----", "")
-                    .replaceAll("-----END PUBLIC KEY-----", "")
-                    .replaceAll("\\s+", "");
-            byte[] decoded = Base64.getDecoder().decode(base64);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            rsaPublicKey = (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(decoded));
-            log.info("OAuth JWT public key loaded from: {}", publicKeyPath);
+            // Load JKS keystore — password is null (public keystore has no private key password)
+            KeyStore ks = KeyStore.getInstance("JKS");
+            ks.load(resource.getInputStream(), null);
+
+            // Extract RSA public key from the first certificate found in the keystore
+            Enumeration<String> aliases = ks.aliases();
+            if (!aliases.hasMoreElements()) {
+                throw new IllegalStateException("JKS keystore contains no certificates: " + publicKeyPath);
+            }
+            String alias = aliases.nextElement();
+            Certificate cert = ks.getCertificate(alias);
+            if (cert == null) {
+                throw new IllegalStateException("No certificate for alias '" + alias + "' in: " + publicKeyPath);
+            }
+            rsaPublicKey = (RSAPublicKey) cert.getPublicKey();
+            log.info("OAuth JWT RSA public key loaded from JKS: {} (alias={})", publicKeyPath, alias);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load OAuth JWT public key from: " + publicKeyPath, e);
+            throw new IllegalStateException("Failed to load OAuth JWT public key from JKS: " + publicKeyPath, e);
         }
     }
 

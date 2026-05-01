@@ -15,35 +15,27 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Issues and validates TMS-internal JWTs (HMAC-SHA256).
  *
- * Flow (mirrors old TmsAuthenticationSuccessHandler):
- *   1. OAuth server token is verified by OAuthAdapter (RSA public key).
- *   2. User is loaded/provisioned from DB (role, tenantId, etc.).
- *   3. THIS service signs a new short-lived internal JWT containing all tenant context.
- *   4. JwtAuthenticationFilter validates this internal token on every request and
- *      populates TenantContext directly from its claims — no DB/Redis hit needed.
- *
- * Claims in the internal token:
- *   sub         → userId (UUID in DB)
- *   email       → user email
- *   role        → ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUBTENANT_USER | VIEWER
- *   tenantId    → UUID (may be absent for unassigned users)
- *   clientId    → UUID
- *   subTenantId → UUID
+ * After the OAuth RS256 token is verified by OAuthAdapter, this service signs
+ * a short-lived internal JWT embedding the full tenant context. All subsequent
+ * requests carry this token — JwtAuthenticationFilter reads claims directly
+ * from it without hitting the database.
  */
 @Slf4j
 @Service
-public class InternalTokenService {
+public class TmsTokenService {
 
-    @Value("${internal.jwt.secret:change-me-this-tms-secret-must-be-at-least-32-chars}")
+    @Value("${tms.jwt.secret:tms-internal-secret-change-me-in-production-min32}")
     private String secret;
 
-    @Value("${internal.jwt.expiry-hours:8}")
+    @Value("${tms.jwt.expiry-hours:8}")
     private int expiryHours;
 
     private byte[] secretBytes;
@@ -53,17 +45,20 @@ public class InternalTokenService {
         secretBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (secretBytes.length < 32) {
             throw new IllegalStateException(
-                    "internal.jwt.secret must be at least 32 characters long");
+                    "tms.jwt.secret must be at least 32 characters long");
         }
-        log.info("Internal JWT service initialised (expiry={}h, HMAC-SHA256)", expiryHours);
+        log.info("TmsTokenService initialised (expiry={}h, HMAC-SHA256)", expiryHours);
     }
 
     // ── Sign ──────────────────────────────────────────────────────────────────
 
     /**
-     * Sign a new internal TMS JWT containing the user's full tenant context.
+     * Sign a new TMS JWT containing the user's full tenant context.
+     *
+     * @param claims all claims to embed (role, tenantId, clientId, subTenantId, assignedTenants)
+     * @return signed JWT string
      */
-    public String sign(InternalClaims claims) {
+    public String sign(TmsTokenClaims claims) {
         try {
             long now = System.currentTimeMillis();
             long exp = now + (long) expiryHours * 3_600_000L;
@@ -72,12 +67,19 @@ public class InternalTokenService {
                     .subject(claims.userId())
                     .issueTime(new Date(now))
                     .expirationTime(new Date(exp))
-                    .claim("email",  claims.email())
-                    .claim("role",   claims.role());
+                    .claim("email", claims.email())
+                    .claim("name",  claims.name())
+                    .claim("role",  claims.role());
 
             if (claims.tenantId()    != null) builder.claim("tenantId",    claims.tenantId().toString());
             if (claims.clientId()    != null) builder.claim("clientId",    claims.clientId().toString());
             if (claims.subTenantId() != null) builder.claim("subTenantId", claims.subTenantId().toString());
+
+            // assignedTenants as list of UUID strings (empty list if not CLIENT_ADMIN)
+            List<String> tenantStrings = (claims.assignedTenants() == null)
+                    ? List.of()
+                    : claims.assignedTenants().stream().map(UUID::toString).toList();
+            builder.claim("assignedTenants", tenantStrings);
 
             JWSSigner signer = new MACSigner(secretBytes);
             SignedJWT jwt    = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
@@ -86,65 +88,78 @@ public class InternalTokenService {
             return jwt.serialize();
 
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to sign internal JWT: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to sign TMS JWT: " + e.getMessage(), e);
         }
     }
 
     // ── Verify ────────────────────────────────────────────────────────────────
 
     /**
-     * Verify the HMAC signature, check expiry, and extract claims.
+     * Verify the HMAC signature, check expiry, and extract all claims.
      *
      * @throws InvalidTokenException on any validation failure
      */
-    public InternalClaims verify(String token) {
+    public TmsTokenClaims verify(String token) {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
 
             JWSVerifier verifier = new MACVerifier(secretBytes);
             if (!jwt.verify(verifier)) {
-                throw new InvalidTokenException("Invalid internal token signature");
+                throw new InvalidTokenException("Invalid TMS token signature");
             }
 
             JWTClaimsSet c = jwt.getJWTClaimsSet();
 
             Date expiry = c.getExpirationTime();
             if (expiry == null || expiry.before(new Date())) {
-                throw new InvalidTokenException("Internal token expired");
+                throw new InvalidTokenException("TMS token expired");
             }
 
             String userId = c.getSubject();
             if (userId == null || userId.isBlank()) {
-                throw new InvalidTokenException("Missing sub claim in internal token");
+                throw new InvalidTokenException("Missing sub claim in TMS token");
             }
-
-            String role = c.getStringClaim("role");
 
             UUID tenantId    = parseUuid(c.getStringClaim("tenantId"));
             UUID clientId    = parseUuid(c.getStringClaim("clientId"));
             UUID subTenantId = parseUuid(c.getStringClaim("subTenantId"));
 
-            return new InternalClaims(
+            // Parse assignedTenants list
+            List<UUID> assignedTenants = new ArrayList<>();
+            Object raw = c.getClaim("assignedTenants");
+            if (raw instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof String s) {
+                        UUID parsed = parseUuid(s);
+                        if (parsed != null) assignedTenants.add(parsed);
+                    }
+                }
+            }
+
+            return new TmsTokenClaims(
                     userId,
                     c.getStringClaim("email"),
-                    role,
+                    c.getStringClaim("name"),
+                    c.getStringClaim("role"),
                     tenantId,
                     clientId,
-                    subTenantId
+                    subTenantId,
+                    List.copyOf(assignedTenants)
             );
 
         } catch (InvalidTokenException e) {
             throw e;
         } catch (Exception e) {
-            throw new InvalidTokenException("Internal token validation failed: " + e.getMessage());
+            throw new InvalidTokenException("TMS token validation failed: " + e.getMessage());
         }
     }
 
-    // ── Helper ────────────────────────────────────────────────────────────────
-
-    private UUID parseUuid(String value) {
-        if (value == null || value.isBlank()) return null;
-        try { return UUID.fromString(value); } catch (Exception e) { return null; }
+    private UUID parseUuid(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
-
