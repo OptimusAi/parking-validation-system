@@ -5,6 +5,7 @@ import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.TenantInfo;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
 import ca.optimusAI.pv.tenant.repository.ClientAdminTenantRepository;
+import ca.optimusAI.pv.tenant.repository.TenantAdminTenantRepository;
 import ca.optimusAI.pv.user.entity.AppUser;
 import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
@@ -39,6 +40,7 @@ public class AuthController {
     private final TmsTokenService             tmsTokenService;
     private final LoginService                loginService;
     private final ClientAdminTenantRepository clientAdminTenantRepo;
+    private final TenantAdminTenantRepository  tenantAdminTenantRepo;
     private final AppUserRepository            appUserRepository;
     private final UserRoleRepository           userRoleRepository;
 
@@ -117,10 +119,15 @@ public class AuthController {
     }
 
     private LoginResponse buildLoginResponse(AppUser user, UserRole userRole) {
-        String role       = userRole != null ? userRole.getRole()        : "USER";
-        UUID tenantId     = userRole != null ? userRole.getTenantId()    : null;
-        UUID clientId     = userRole != null ? userRole.getClientId()    : null;
-        UUID subTenantId  = userRole != null ? userRole.getSubTenantId() : null;
+        String role      = userRole != null ? userRole.getRole()        : "USER";
+        UUID clientId    = userRole != null ? userRole.getClientId()    : null;
+        UUID subTenantId = userRole != null ? userRole.getSubTenantId() : null;
+
+        // TENANT_ADMIN: tenantId comes from tenant_admin_tenants (dedicated table)
+        // Other roles:  tenantId comes from user_role.tenant_id
+        UUID tenantId = "TENANT_ADMIN".equals(role)
+                ? tenantAdminTenantRepo.findTenantIdByUserId(user.getId()).orElse(null)
+                : (userRole != null ? userRole.getTenantId() : null);
 
         List<UUID> assignedTenants = "CLIENT_ADMIN".equals(role)
                 ? clientAdminTenantRepo.findTenantIdsByUserId(user.getId())

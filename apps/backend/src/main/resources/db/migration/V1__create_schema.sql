@@ -82,6 +82,17 @@ CREATE TABLE client_admin_tenants (
     CONSTRAINT uq_client_admin_tenant UNIQUE (user_id, tenant_id)
 );
 
+-- ─── tenant_admin_tenants ─────────────────────────────────────────────────────
+-- Maps TENANT_ADMIN users to their single managed tenant.
+-- UNIQUE(user_id) enforces one-to-one: one TENANT_ADMIN → one tenant.
+CREATE TABLE tenant_admin_tenants (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    tenant_id   UUID        NOT NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_tenant_admin_user UNIQUE (user_id)
+);
+
 -- ─── sub_tenants ──────────────────────────────────────────────────────────────
 CREATE TABLE sub_tenants (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

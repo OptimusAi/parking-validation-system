@@ -29,6 +29,13 @@ CREATE INDEX IF NOT EXISTS idx_cat_user_id
 CREATE INDEX IF NOT EXISTS idx_cat_tenant_id
     ON client_admin_tenants (tenant_id);
 
+-- ─── tenant_admin_tenants ─────────────────────────────────────────────────────
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tat_user_id
+    ON tenant_admin_tenants (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_tat_tenant_id
+    ON tenant_admin_tenants (tenant_id);
+
 -- ─── clients ──────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_clients_is_deleted
     ON clients (is_deleted);
