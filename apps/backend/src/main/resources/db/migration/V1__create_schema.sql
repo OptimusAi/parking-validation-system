@@ -71,25 +71,36 @@ CREATE TABLE tenants (
     is_deleted  BOOLEAN      NOT NULL DEFAULT false
 );
 
--- ─── client_admin_tenants ────────────────────────────────────────────────────
--- Maps CLIENT_ADMIN users to the tenants they manage.
-CREATE TABLE client_admin_tenants (
+-- ─── client_admin_assignments ────────────────────────────────────────────────
+-- Maps CLIENT_ADMIN users to their parent client and the tenants they manage.
+CREATE TABLE client_admin_assignments (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    client_id   UUID        NOT NULL,
     tenant_id   UUID        NOT NULL,
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_client_admin_tenant UNIQUE (user_id, tenant_id)
+    CONSTRAINT uq_client_admin_assignment UNIQUE (user_id, tenant_id)
 );
 
--- ─── tenant_admin_tenants ─────────────────────────────────────────────────────
--- Maps TENANT_ADMIN users to their single managed tenant.
--- UNIQUE(user_id) enforces one-to-one: one TENANT_ADMIN → one tenant.
-CREATE TABLE tenant_admin_tenants (
+-- ─── tenant_admin_assignments ─────────────────────────────────────────────────
+-- Maps TENANT_ADMIN users to their single managed tenant (one-to-one).
+CREATE TABLE tenant_admin_assignments (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     tenant_id   UUID        NOT NULL,
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_tenant_admin_user UNIQUE (user_id)
+    CONSTRAINT uq_tenant_admin_assignment UNIQUE (user_id)
+);
+
+-- ─── sub_tenant_admin_assignments ────────────────────────────────────────────
+-- Maps SUB_TENANT_ADMIN users to their single managed sub-tenant (one-to-one).
+CREATE TABLE sub_tenant_admin_assignments (
+    id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    tenant_id     UUID        NOT NULL,
+    sub_tenant_id UUID        NOT NULL,
+    assigned_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_sub_tenant_admin_assignment UNIQUE (user_id)
 );
 
 -- ─── sub_tenants ──────────────────────────────────────────────────────────────
