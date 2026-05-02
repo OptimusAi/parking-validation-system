@@ -16,9 +16,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,12 +34,22 @@ import java.util.UUID;
  *  POST /api/auth/token-exchange → LoginResponse   (OAuth token in body)
  *  POST /api/auth/logout         → 204             (stateless — client discards JWT)
  *  GET  /api/auth/me             → AuthUser        (current user from TenantContext)
+ *  GET  /api/auth/login-url      → { loginUrl }    (OAuth authorize URL — public)
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+
+    @Value("${oauth.host:http://localhost:9090}")
+    private String oauthHost;
+
+    @Value("${oauth.client-id:cpa-tms-client}")
+    private String oauthClientId;
+
+    @Value("${app.base-url:http://localhost:3000}")
+    private String appBaseUrl;
 
     private final OAuthAdapter                oAuthAdapter;
     private final TmsTokenService             tmsTokenService;
@@ -45,6 +59,20 @@ public class AuthController {
     private final SubTenantAdminAssignmentRepository subTenantAdminAssignmentRepo;
     private final AppUserRepository                 appUserRepository;
     private final UserRoleRepository                userRoleRepository;
+    private final ca.optimusAI.pv.tenant.repository.TenantRepository tenantRepository;
+
+    // ── GET /api/auth/login-url ──────────────────────────────────────────────
+    /** Returns the OAuth2 implicit-flow authorization URL. Same as TMS /client/config/public/login. */
+    @GetMapping("/login-url")
+    public ResponseEntity<java.util.Map<String, String>> getLoginUrl() {
+        String redirectUri = appBaseUrl + "/login";
+        String loginUrl = oauthHost + "/oauth/authorize"
+                + "?response_type=token"
+                + "&client_id=" + URLEncoder.encode(oauthClientId, StandardCharsets.UTF_8)
+                + "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8)
+                + "&scope=read+write";
+        return ResponseEntity.ok(java.util.Map.of("loginUrl", loginUrl));
+    }
 
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")
@@ -124,23 +152,38 @@ public class AuthController {
         String role = userRole != null ? userRole.getRole() : "USER";
 
         // Each role loads scope from its dedicated assignment table
-        UUID clientId = "CLIENT_ADMIN".equals(role)
-                ? clientAdminAssignmentRepo.findClientIdByUserId(user.getId()).orElse(null)
-                : null;
+        UUID clientId;
+        UUID tenantId;
+        UUID subTenantId = null;
+        List<UUID> assignedTenants = List.of();
 
-        UUID tenantId = switch (role) {
-            case "TENANT_ADMIN"     -> tenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
-            case "SUB_TENANT_ADMIN" -> subTenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
-            default                 -> null;
-        };
-
-        UUID subTenantId = "SUB_TENANT_ADMIN".equals(role)
-                ? subTenantAdminAssignmentRepo.findSubTenantIdByUserId(user.getId()).orElse(null)
-                : null;
-
-        List<UUID> assignedTenants = "CLIENT_ADMIN".equals(role)
-                ? clientAdminAssignmentRepo.findTenantIdsByUserId(user.getId())
-                : List.of();
+        switch (role) {
+            case "CLIENT_ADMIN" -> {
+                clientId       = clientAdminAssignmentRepo.findClientIdByUserId(user.getId()).orElse(null);
+                tenantId       = null;
+                assignedTenants = clientAdminAssignmentRepo.findTenantIdsByUserId(user.getId());
+            }
+            case "TENANT_ADMIN" -> {
+                tenantId = tenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
+                // Resolve the owning client from the tenants table
+                clientId = (tenantId != null)
+                        ? tenantRepository.findClientIdByTenantId(tenantId).orElse(null)
+                        : null;
+            }
+            case "SUB_TENANT_ADMIN" -> {
+                tenantId    = subTenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
+                subTenantId = subTenantAdminAssignmentRepo.findSubTenantIdByUserId(user.getId()).orElse(null);
+                // Resolve the owning client from the tenants table
+                clientId = (tenantId != null)
+                        ? tenantRepository.findClientIdByTenantId(tenantId).orElse(null)
+                        : null;
+            }
+            default -> {
+                // ADMIN has no client/tenant scope
+                clientId = null;
+                tenantId = null;
+            }
+        }
 
         TmsTokenClaims tokenClaims = new TmsTokenClaims(
                 user.getAuthProviderUserId(),
