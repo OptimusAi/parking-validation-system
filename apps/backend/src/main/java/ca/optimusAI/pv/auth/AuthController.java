@@ -4,8 +4,9 @@ import ca.optimusAI.pv.shared.AuthUser;
 import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.TenantInfo;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
-import ca.optimusAI.pv.tenant.repository.ClientAdminTenantRepository;
-import ca.optimusAI.pv.tenant.repository.TenantAdminTenantRepository;
+import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.TenantAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.SubTenantAdminAssignmentRepository;
 import ca.optimusAI.pv.user.entity.AppUser;
 import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
@@ -39,10 +40,11 @@ public class AuthController {
     private final OAuthAdapter                oAuthAdapter;
     private final TmsTokenService             tmsTokenService;
     private final LoginService                loginService;
-    private final ClientAdminTenantRepository clientAdminTenantRepo;
-    private final TenantAdminTenantRepository  tenantAdminTenantRepo;
-    private final AppUserRepository            appUserRepository;
-    private final UserRoleRepository           userRoleRepository;
+    private final ClientAdminAssignmentRepository  clientAdminAssignmentRepo;
+    private final TenantAdminAssignmentRepository   tenantAdminAssignmentRepo;
+    private final SubTenantAdminAssignmentRepository subTenantAdminAssignmentRepo;
+    private final AppUserRepository                 appUserRepository;
+    private final UserRoleRepository                userRoleRepository;
 
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")
@@ -119,18 +121,25 @@ public class AuthController {
     }
 
     private LoginResponse buildLoginResponse(AppUser user, UserRole userRole) {
-        String role      = userRole != null ? userRole.getRole()        : "USER";
-        UUID clientId    = userRole != null ? userRole.getClientId()    : null;
-        UUID subTenantId = userRole != null ? userRole.getSubTenantId() : null;
+        String role = userRole != null ? userRole.getRole() : "USER";
 
-        // TENANT_ADMIN: tenantId comes from tenant_admin_tenants (dedicated table)
-        // Other roles:  tenantId comes from user_role.tenant_id
-        UUID tenantId = "TENANT_ADMIN".equals(role)
-                ? tenantAdminTenantRepo.findTenantIdByUserId(user.getId()).orElse(null)
-                : (userRole != null ? userRole.getTenantId() : null);
+        // Each role loads scope from its dedicated assignment table
+        UUID clientId = "CLIENT_ADMIN".equals(role)
+                ? clientAdminAssignmentRepo.findClientIdByUserId(user.getId()).orElse(null)
+                : null;
+
+        UUID tenantId = switch (role) {
+            case "TENANT_ADMIN"     -> tenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
+            case "SUB_TENANT_ADMIN" -> subTenantAdminAssignmentRepo.findTenantIdByUserId(user.getId()).orElse(null);
+            default                 -> null;
+        };
+
+        UUID subTenantId = "SUB_TENANT_ADMIN".equals(role)
+                ? subTenantAdminAssignmentRepo.findSubTenantIdByUserId(user.getId()).orElse(null)
+                : null;
 
         List<UUID> assignedTenants = "CLIENT_ADMIN".equals(role)
-                ? clientAdminTenantRepo.findTenantIdsByUserId(user.getId())
+                ? clientAdminAssignmentRepo.findTenantIdsByUserId(user.getId())
                 : List.of();
 
         TmsTokenClaims tokenClaims = new TmsTokenClaims(

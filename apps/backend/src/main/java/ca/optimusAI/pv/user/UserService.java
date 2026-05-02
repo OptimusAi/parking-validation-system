@@ -5,6 +5,12 @@ import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
+import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
+import ca.optimusAI.pv.tenant.entity.SubTenantAdminAssignment;
+import ca.optimusAI.pv.tenant.entity.TenantAdminAssignment;
+import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.SubTenantAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.TenantAdminAssignmentRepository;
 import ca.optimusAI.pv.user.entity.AppUser;
 import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
@@ -24,9 +30,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final AppUserRepository  userRepository;
-    private final UserRoleRepository userRoleRepository;
-    private final UserRoleService    userRoleService;
+    private final AppUserRepository                 userRepository;
+    private final UserRoleRepository                 userRoleRepository;
+    private final UserRoleService                    userRoleService;
+    private final ClientAdminAssignmentRepository    clientAdminAssignmentRepository;
+    private final TenantAdminAssignmentRepository    tenantAdminAssignmentRepository;
+    private final SubTenantAdminAssignmentRepository subTenantAdminAssignmentRepository;
 
     private static final List<String> VALID_ROLES =
             List.of("ADMIN", "CLIENT_ADMIN", "TENANT_ADMIN", "SUB_TENANT_ADMIN", "USER");
@@ -46,13 +55,10 @@ public class UserService {
 
         if (TenantContext.hasRole("CLIENT_ADMIN")) {
             List<UUID> assignedTenants = TenantContext.assignedTenants();
-            if (!assignedTenants.isEmpty()) {
-                List<UUID> userIds = userRoleRepository.findUserIdsByTenantIdIn(assignedTenants);
-                return PageResponse.of(userRepository.findByIdIn(userIds, pr));
+            if (assignedTenants.isEmpty()) {
+                throw new UnauthorizedTenantAccessException("No tenants assigned to this CLIENT_ADMIN");
             }
-            UUID clientId = TenantContext.clientId();
-            if (clientId == null) throw new UnauthorizedTenantAccessException("No client assigned");
-            List<UUID> userIds = userRoleRepository.findUserIdsByClientId(clientId);
+            List<UUID> userIds = clientAdminAssignmentRepository.findUserIdsByTenantIdIn(assignedTenants);
             return PageResponse.of(userRepository.findByIdIn(userIds, pr));
         }
 
@@ -107,15 +113,43 @@ public class UserService {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
 
-        UserRole userRole = userRoleRepository.findByUserId(id)
-                .orElseGet(() -> UserRole.builder().userId(id).role("USER").build());
-        userRole.setTenantId(tenantId);
-        userRole.setClientId(clientId);
-        userRole.setSubTenantId(subTenantId);
-        userRoleRepository.save(userRole);
+        UserRole userRole = userRoleRepository.findByUserId(id).orElse(null);
+        String role = userRole != null ? userRole.getRole() : "USER";
+
+        switch (role) {
+            case "CLIENT_ADMIN" -> {
+                if (clientId != null && tenantId != null) {
+                    clientAdminAssignmentRepository.findByUserIdAndTenantId(id, tenantId).ifPresentOrElse(
+                        existing -> {},
+                        () -> clientAdminAssignmentRepository.save(
+                                ClientAdminAssignment.builder()
+                                        .userId(id).clientId(clientId).tenantId(tenantId).build())
+                    );
+                }
+            }
+            case "TENANT_ADMIN" -> {
+                if (tenantId != null) {
+                    TenantAdminAssignment a = tenantAdminAssignmentRepository.findByUserId(id)
+                            .orElseGet(() -> TenantAdminAssignment.builder().userId(id).build());
+                    a.setTenantId(tenantId);
+                    tenantAdminAssignmentRepository.save(a);
+                }
+            }
+            case "SUB_TENANT_ADMIN" -> {
+                if (tenantId != null && subTenantId != null) {
+                    SubTenantAdminAssignment a = subTenantAdminAssignmentRepository.findByUserId(id)
+                            .orElseGet(() -> SubTenantAdminAssignment.builder().userId(id).build());
+                    a.setTenantId(tenantId);
+                    a.setSubTenantId(subTenantId);
+                    subTenantAdminAssignmentRepository.save(a);
+                }
+            }
+            default -> log.warn("assignTenant called for role={} — no assignment table for this role", role);
+        }
 
         userRoleService.evictCache(user.getAuthProviderUserId());
-        log.info("Assigned tenantId={} clientId={} subTenantId={} to userId={}", tenantId, clientId, subTenantId, id);
+        log.info("Assigned scope tenantId={} clientId={} subTenantId={} to userId={} role={}",
+                tenantId, clientId, subTenantId, id, role);
         return user;
     }
 

@@ -7,15 +7,16 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Join table: maps a TENANT_ADMIN user to their single managed tenant.
- * UNIQUE(user_id) enforces the one-to-one constraint — one TENANT_ADMIN → one tenant.
+ * Maps a CLIENT_ADMIN user to one of the tenants they are allowed to manage.
+ * Carries the parent client_id so the CLIENT_ADMIN's client context is always known.
+ * UNIQUE(user_id, tenant_id) — one CLIENT_ADMIN can manage many tenants.
  */
 @Entity
 @Table(
-    name = "tenant_admin_tenants",
+    name = "client_admin_assignments",
     uniqueConstraints = @UniqueConstraint(
-        name = "uq_tenant_admin_user",
-        columnNames = {"user_id"}
+        name = "uq_client_admin_assignment",
+        columnNames = {"user_id", "tenant_id"}
     )
 )
 @Getter
@@ -23,7 +24,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TenantAdminTenant {
+public class ClientAdminAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,6 +32,9 @@ public class TenantAdminTenant {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+
+    @Column(name = "client_id", nullable = false)
+    private UUID clientId;
 
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;

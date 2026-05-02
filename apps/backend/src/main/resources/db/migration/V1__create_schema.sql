@@ -18,14 +18,13 @@ CREATE TABLE app_user (
 );
 
 -- ─── user_role ────────────────────────────────────────────────────────────────
--- One row per user; holds role + tenant/client/sub-tenant scope.
+-- One row per user; holds only the role. Scope (tenant/client/sub-tenant) lives
+-- in the dedicated assignment tables: client_admin_assignments,
+-- tenant_admin_assignments, sub_tenant_admin_assignments.
 CREATE TABLE user_role (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     role          VARCHAR(30) NOT NULL DEFAULT 'USER',
-    tenant_id     UUID,
-    client_id     UUID,
-    sub_tenant_id UUID,
     is_active     BOOLEAN     NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),

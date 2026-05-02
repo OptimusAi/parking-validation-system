@@ -4,10 +4,10 @@ import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.exception.TenantNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
-import ca.optimusAI.pv.tenant.entity.ClientAdminTenant;
+import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
 import ca.optimusAI.pv.tenant.entity.Tenant;
 import ca.optimusAI.pv.tenant.entity.TenantBranding;
-import ca.optimusAI.pv.tenant.repository.ClientAdminTenantRepository;
+import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
 import ca.optimusAI.pv.tenant.repository.TenantRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -32,7 +32,7 @@ import java.util.UUID;
 public class TenantService {
 
     private final TenantRepository tenantRepository;
-    private final ClientAdminTenantRepository clientAdminTenantRepository;
+    private final ClientAdminAssignmentRepository clientAdminAssignmentRepository;
     private final AwsS3Service awsS3Service;
     private final ObjectMapper objectMapper;
 
@@ -83,11 +83,13 @@ public class TenantService {
 
         // If CLIENT_ADMIN created this tenant, auto-assign them to it
         if (TenantContext.hasRole("CLIENT_ADMIN")) {
-            String userId = TenantContext.userId();
-            if (userId != null) {
+            String userIdStr = TenantContext.userId();
+            UUID callerClientId = TenantContext.clientId();
+            if (userIdStr != null && callerClientId != null) {
                 try {
-                    clientAdminTenantRepository.save(ClientAdminTenant.builder()
-                            .userId(UUID.fromString(userId))
+                    clientAdminAssignmentRepository.save(ClientAdminAssignment.builder()
+                            .userId(UUID.fromString(userIdStr))
+                            .clientId(callerClientId)
                             .tenantId(saved.getId())
                             .build());
                 } catch (Exception ignored) {
@@ -116,19 +118,22 @@ public class TenantService {
 
     @Transactional
     public void assignAdmin(UUID tenantId, UUID userId) {
-        // Verify tenant exists
-        tenantRepository.findByIdAndIsDeletedFalse(tenantId)
+        Tenant tenant = tenantRepository.findByIdAndIsDeletedFalse(tenantId)
                 .orElseThrow(() -> new TenantNotFoundException("Tenant not found: " + tenantId));
-        clientAdminTenantRepository.findByUserIdAndTenantId(userId, tenantId).ifPresentOrElse(
+        clientAdminAssignmentRepository.findByUserIdAndTenantId(userId, tenantId).ifPresentOrElse(
                 existing -> log.debug("Assignment already exists for userId={} tenantId={}", userId, tenantId),
-                () -> clientAdminTenantRepository.save(
-                        ClientAdminTenant.builder().userId(userId).tenantId(tenantId).build())
+                () -> clientAdminAssignmentRepository.save(
+                        ClientAdminAssignment.builder()
+                                .userId(userId)
+                                .clientId(tenant.getClientId())
+                                .tenantId(tenantId)
+                                .build())
         );
     }
 
     @Transactional
     public void unassignAdmin(UUID tenantId, UUID userId) {
-        clientAdminTenantRepository.deleteByUserIdAndTenantId(userId, tenantId);
+        clientAdminAssignmentRepository.deleteByUserIdAndTenantId(userId, tenantId);
     }
 
     // ── Branding ─────────────────────────────────────────────────────────────

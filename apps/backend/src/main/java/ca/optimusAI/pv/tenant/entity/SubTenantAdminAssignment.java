@@ -7,15 +7,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Join table: tracks which tenants a CLIENT_ADMIN user is allowed to manage.
- * One row per (user_id, tenant_id) pair.
+ * Maps a SUB_TENANT_ADMIN user to their single managed sub-tenant.
+ * UNIQUE(user_id) enforces one-to-one: one SUB_TENANT_ADMIN → one sub-tenant.
  */
 @Entity
 @Table(
-    name = "client_admin_tenants",
+    name = "sub_tenant_admin_assignments",
     uniqueConstraints = @UniqueConstraint(
-        name = "uq_client_admin_tenant",
-        columnNames = {"user_id", "tenant_id"}
+        name = "uq_sub_tenant_admin_assignment",
+        columnNames = {"user_id"}
     )
 )
 @Getter
@@ -23,7 +23,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ClientAdminTenant {
+public class SubTenantAdminAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -34,6 +34,9 @@ public class ClientAdminTenant {
 
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
+
+    @Column(name = "sub_tenant_id", nullable = false)
+    private UUID subTenantId;
 
     @Column(name = "assigned_at", nullable = false, updatable = false)
     private Instant assignedAt;

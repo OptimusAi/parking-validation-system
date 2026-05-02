@@ -1,7 +1,11 @@
 package ca.optimusAI.pv.config;
 
-import ca.optimusAI.pv.tenant.entity.TenantAdminTenant;
-import ca.optimusAI.pv.tenant.repository.TenantAdminTenantRepository;
+import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
+import ca.optimusAI.pv.tenant.entity.SubTenantAdminAssignment;
+import ca.optimusAI.pv.tenant.entity.TenantAdminAssignment;
+import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.SubTenantAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.TenantAdminAssignmentRepository;
 import ca.optimusAI.pv.user.entity.AppUser;
 import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
@@ -33,9 +37,11 @@ public class LocalDataSeeder implements ApplicationRunner {
     private static final UUID TENANT_ID     = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID SUB_TENANT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
-    private final AppUserRepository         userRepository;
-    private final UserRoleRepository         userRoleRepository;
-    private final TenantAdminTenantRepository tenantAdminTenantRepository;
+    private final AppUserRepository                 userRepository;
+    private final UserRoleRepository                 userRoleRepository;
+    private final ClientAdminAssignmentRepository    clientAdminAssignmentRepository;
+    private final TenantAdminAssignmentRepository    tenantAdminAssignmentRepository;
+    private final SubTenantAdminAssignmentRepository subTenantAdminAssignmentRepository;
 
     @Override
     @Transactional
@@ -79,43 +85,68 @@ public class LocalDataSeeder implements ApplicationRunner {
                     return saved;
                 });
 
-            // Upsert UserRole
+            // Upsert UserRole (role only — scope lives in assignment tables)
             UserRole userRole = userRoleRepository.findByUserId(user.getId())
                 .orElseGet(() -> UserRole.builder().userId(user.getId()).build());
 
-            UUID expectedTenantId = "TENANT_ADMIN".equals(seed.role()) ? null : seed.tenantId();
-            boolean changed = !seed.role().equals(userRole.getRole())
-                    || !java.util.Objects.equals(seed.clientId(), userRole.getClientId())
-                    || !java.util.Objects.equals(expectedTenantId, userRole.getTenantId())
-                    || !java.util.Objects.equals(seed.subTenantId(), userRole.getSubTenantId());
-
-            if (changed || userRole.getId() == null) {
+            if (!seed.role().equals(userRole.getRole()) || userRole.getId() == null) {
                 userRole.setRole(seed.role());
-                userRole.setClientId(seed.clientId());
-                // TENANT_ADMIN tenantId is stored in tenant_admin_tenants, not user_role
-                userRole.setTenantId("TENANT_ADMIN".equals(seed.role()) ? null : seed.tenantId());
-                userRole.setSubTenantId(seed.subTenantId());
                 userRoleRepository.save(userRole);
                 log.info("[LocalDataSeeder] Upserted role={} for {}", seed.role(), seed.email());
             } else {
                 log.debug("[LocalDataSeeder] User already seeded: {}", seed.email());
             }
 
-            // Seed tenant_admin_tenants for TENANT_ADMIN
-            if ("TENANT_ADMIN".equals(seed.role()) && seed.tenantId() != null) {
-                tenantAdminTenantRepository.findByUserId(user.getId()).ifPresentOrElse(
-                    existing -> {
-                        if (!seed.tenantId().equals(existing.getTenantId())) {
-                            existing.setTenantId(seed.tenantId());
-                            tenantAdminTenantRepository.save(existing);
-                        }
-                    },
-                    () -> tenantAdminTenantRepository.save(
-                            TenantAdminTenant.builder()
-                                    .userId(user.getId())
-                                    .tenantId(seed.tenantId())
-                                    .build())
-                );
+            // Seed assignment table based on role
+            switch (seed.role()) {
+                case "CLIENT_ADMIN" -> {
+                    if (seed.clientId() != null && seed.tenantId() != null) {
+                        clientAdminAssignmentRepository.findByUserIdAndTenantId(user.getId(), seed.tenantId())
+                            .ifPresentOrElse(
+                                existing -> {},
+                                () -> clientAdminAssignmentRepository.save(
+                                        ClientAdminAssignment.builder()
+                                                .userId(user.getId())
+                                                .clientId(seed.clientId())
+                                                .tenantId(seed.tenantId())
+                                                .build())
+                            );
+                    }
+                }
+                case "TENANT_ADMIN" -> {
+                    if (seed.tenantId() != null) {
+                        tenantAdminAssignmentRepository.findByUserId(user.getId()).ifPresentOrElse(
+                            existing -> {
+                                if (!seed.tenantId().equals(existing.getTenantId())) {
+                                    existing.setTenantId(seed.tenantId());
+                                    tenantAdminAssignmentRepository.save(existing);
+                                }
+                            },
+                            () -> tenantAdminAssignmentRepository.save(
+                                    TenantAdminAssignment.builder()
+                                            .userId(user.getId())
+                                            .tenantId(seed.tenantId())
+                                            .build())
+                        );
+                    }
+                }
+                case "SUB_TENANT_ADMIN" -> {
+                    if (seed.tenantId() != null && seed.subTenantId() != null) {
+                        subTenantAdminAssignmentRepository.findByUserId(user.getId()).ifPresentOrElse(
+                            existing -> {
+                                existing.setTenantId(seed.tenantId());
+                                existing.setSubTenantId(seed.subTenantId());
+                                subTenantAdminAssignmentRepository.save(existing);
+                            },
+                            () -> subTenantAdminAssignmentRepository.save(
+                                    SubTenantAdminAssignment.builder()
+                                            .userId(user.getId())
+                                            .tenantId(seed.tenantId())
+                                            .subTenantId(seed.subTenantId())
+                                            .build())
+                        );
+                    }
+                }
             }
         }
 

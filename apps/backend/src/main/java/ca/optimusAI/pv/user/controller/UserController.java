@@ -1,8 +1,8 @@
 package ca.optimusAI.pv.user.controller;
 
 import ca.optimusAI.pv.shared.PageResponse;
-import ca.optimusAI.pv.tenant.entity.ClientAdminTenant;
-import ca.optimusAI.pv.tenant.repository.ClientAdminTenantRepository;
+import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
+import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
 import ca.optimusAI.pv.user.UserService;
 import ca.optimusAI.pv.user.entity.AppUser;
 import jakarta.validation.Valid;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final ClientAdminTenantRepository clientAdminTenantRepository;
+    private final ClientAdminAssignmentRepository clientAdminAssignmentRepository;
 
     /** List users — ADMIN: all, CLIENT_ADMIN: assigned tenants only. */
     @GetMapping
@@ -80,8 +80,8 @@ public class UserController {
     /** Get tenants assigned to a CLIENT_ADMIN user. */
     @GetMapping("/{id}/assigned-tenants")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN')")
-    public ResponseEntity<List<ClientAdminTenant>> assignedTenants(@PathVariable UUID id) {
-        return ResponseEntity.ok(clientAdminTenantRepository.findAllByUserId(id));
+    public ResponseEntity<List<ClientAdminAssignment>> assignedTenants(@PathVariable UUID id) {
+        return ResponseEntity.ok(clientAdminAssignmentRepository.findAllByUserId(id));
     }
 
     // ── Request records ───────────────────────────────────────────────────────

@@ -7,11 +7,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Persists the role + tenant scope for an {@link AppUser}.
+ * Persists the role for an {@link AppUser}.
  *
  * One row per user (enforced by the unique constraint on user_id).
- * Role assignment and tenant scoping (tenant_id, client_id, sub_tenant_id)
- * are managed independently of the core user identity record.
+ * Tenant/client/sub-tenant scope lives in the dedicated assignment tables:
+ * client_admin_assignments, tenant_admin_assignments, sub_tenant_admin_assignments.
  */
 @Entity
 @Table(name = "user_role")
@@ -34,15 +34,6 @@ public class UserRole {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String role = "USER";
-
-    @Column(name = "tenant_id")
-    private UUID tenantId;
-
-    @Column(name = "client_id")
-    private UUID clientId;
-
-    @Column(name = "sub_tenant_id")
-    private UUID subTenantId;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

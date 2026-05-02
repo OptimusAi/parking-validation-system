@@ -24,10 +24,10 @@ public record UserRecord(
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
-                userRole != null ? userRole.getTenantId()    : null,
-                userRole != null ? userRole.getClientId()    : null,
-                userRole != null ? userRole.getSubTenantId() : null,
-                userRole != null ? userRole.getRole()        : "USER",
+                null,  // tenantId — scope now in dedicated assignment tables
+                null,  // clientId — scope now in dedicated assignment tables
+                null,  // subTenantId — scope now in dedicated assignment tables
+                userRole != null ? userRole.getRole() : "USER",
                 user.isActive()
         );
     }
