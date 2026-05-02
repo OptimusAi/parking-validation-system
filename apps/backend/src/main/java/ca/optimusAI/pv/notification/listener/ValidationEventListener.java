@@ -52,7 +52,10 @@ public class ValidationEventListener {
                  "SESSION_EXPIRING_SOON",
                  "SESSION_CANCELLED" -> {
                 handleSms(event);
-                handleEmail(event);
+                /**
+                 * TODO: Expand email functionality to support sending automated reminders.
+                 */
+                //handleEmail(event);
             }
             default -> log.warn("Unknown event type: {}", event.eventType());
         }
