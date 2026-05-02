@@ -19,6 +19,7 @@ public record LoginResponse(
         UUID subTenantId,
         List<UUID> assignedTenants,
         String email,
-        String name,
+        String firstName,
+        String lastName,
         String message
 ) {}

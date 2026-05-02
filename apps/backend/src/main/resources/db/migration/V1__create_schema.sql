@@ -2,25 +2,53 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ─── users ────────────────────────────────────────────────────────────────────
--- No tenant_id Hibernate filter — ADMIN queries across all tenants
-CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    auth0_user_id   VARCHAR(100) NOT NULL,
-    email           VARCHAR(255),
-    name            VARCHAR(255),
-    tenant_id       UUID,
-    client_id       UUID,
-    sub_tenant_id   UUID,
-    role            VARCHAR(30)  NOT NULL DEFAULT 'SUBTENANT_USER',
-    is_active       BOOLEAN      NOT NULL DEFAULT true,
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_users_auth0_user_id UNIQUE (auth0_user_id)
+-- ─── app_user ─────────────────────────────────────────────────────────────────
+-- No tenant_id Hibernate filter — ADMIN queries across all tenants.
+-- Role + tenant scope live in user_role (one-to-one).
+CREATE TABLE app_user (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_provider_user_id VARCHAR(100) NOT NULL,
+    email                 VARCHAR(255),
+    first_name            VARCHAR(100),
+    last_name             VARCHAR(100),
+
+    password_hash         VARCHAR(256),   -- BCrypt; null in production (OAuth only)
+    is_active             BOOLEAN      NOT NULL DEFAULT true,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_app_user_auth_provider_user_id UNIQUE (auth_provider_user_id)
+);
+
+-- ─── user_role ────────────────────────────────────────────────────────────────
+-- One row per user; holds role + tenant/client/sub-tenant scope.
+CREATE TABLE user_role (
+    id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    role          VARCHAR(30) NOT NULL DEFAULT 'USER',
+    tenant_id     UUID,
+    client_id     UUID,
+    sub_tenant_id UUID,
+    is_active     BOOLEAN     NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_user_role_user_id UNIQUE (user_id),
+    CONSTRAINT chk_user_role_role   CHECK  (role IN ('ADMIN','CLIENT_ADMIN','TENANT_ADMIN','SUB_TENANT_ADMIN','USER'))
+);
+
+-- ─── login ────────────────────────────────────────────────────────────────────
+-- Tracks every identity-provider account that has ever authenticated.
+CREATE TABLE login (
+    id               VARCHAR(36)  NOT NULL,
+    login_provider   VARCHAR(128) NOT NULL,
+    provider_user_id VARCHAR(256) NOT NULL,
+    email            VARCHAR(128),
+    last_login_date  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    user_id          UUID,
+    CONSTRAINT login_pkey    PRIMARY KEY (id),
+    CONSTRAINT login_user_fk FOREIGN KEY (user_id) REFERENCES app_user(id)
 );
 
 -- ─── clients ──────────────────────────────────────────────────────────────────
--- No Hibernate filter — ADMIN queries across all clients
 CREATE TABLE clients (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(255) NOT NULL,
@@ -33,7 +61,7 @@ CREATE TABLE clients (
 );
 
 -- ─── tenants ──────────────────────────────────────────────────────────────────
--- tenant_id mirrors id — required for Hibernate filter consistency
+-- tenant_id mirrors id — required for Hibernate filter consistency.
 CREATE TABLE tenants (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_id   UUID         NOT NULL REFERENCES clients(id),
@@ -44,6 +72,16 @@ CREATE TABLE tenants (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     is_deleted  BOOLEAN      NOT NULL DEFAULT false
+);
+
+-- ─── client_admin_tenants ────────────────────────────────────────────────────
+-- Maps CLIENT_ADMIN users to the tenants they manage.
+CREATE TABLE client_admin_tenants (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID        NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    tenant_id   UUID        NOT NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_client_admin_tenant UNIQUE (user_id, tenant_id)
 );
 
 -- ─── sub_tenants ──────────────────────────────────────────────────────────────
@@ -113,6 +151,7 @@ CREATE TABLE validation_links (
     id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id                UUID         NOT NULL,
     client_id                UUID         NOT NULL,
+    sub_tenant_id            UUID,
     zone_id                  UUID         NOT NULL REFERENCES zones(id),
     link_type                VARCHAR(10)  NOT NULL,   -- URL | QR
     token                    VARCHAR(500) NOT NULL,

@@ -39,16 +39,14 @@ public class LoginService {
      * @param loginProvider  e.g. "oauth2", "google", "azure-ad"
      * @param providerUserId the subject / uid from the OAuth/OIDC token
      * @param email          email address from the token (may be null)
-     * @param displayName    full name for provisioning (may be null)
-     * @param gtoken         raw OAuth access-token to store (may be null)
      * @return the {@link AppUser} record linked to (or just created for) this login
      */
     @Transactional
     public AppUser upsertLogin(String loginProvider,
                                String providerUserId,
                                String email,
-                               String displayName,
-                               String gtoken) {
+                               String firstName,
+                               String lastName) {
 
         return loginRepository.findByProviderUserIdIgnoreCase(providerUserId)
                 .map(existing -> {
@@ -60,7 +58,7 @@ public class LoginService {
                         throw new ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException(
                                 "User account is disabled");
                     }
-                    existing.updateOnLogin(email, gtoken);
+                    existing.updateOnLogin(email);
                     loginRepository.save(existing);
                     return user;
                 })
@@ -68,9 +66,9 @@ public class LoginService {
                     // ── First login: create user + login row ──────────────────
                     log.info("First login for providerUserId={}; provisioning user", providerUserId);
 
-                    AppUser user = userProvisioner.findOrCreate(providerUserId, email, displayName);
+                    AppUser user = userProvisioner.findOrCreate(providerUserId, email, firstName, lastName);
 
-                    Login newLogin = Login.create(loginProvider, providerUserId, email, gtoken);
+                    Login newLogin = Login.create(loginProvider, providerUserId, email);
                     newLogin.setUser(user);
                     loginRepository.save(newLogin);
 

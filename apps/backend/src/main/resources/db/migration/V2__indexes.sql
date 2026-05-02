@@ -1,6 +1,33 @@
--- ─── users ────────────────────────────────────────────────────────────────────
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth0_user_id
-    ON users (auth0_user_id);
+-- ─── app_user ─────────────────────────────────────────────────────────────────
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_user_auth_provider_user_id
+    ON app_user (auth_provider_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_app_user_email
+    ON app_user (email);
+
+-- ─── user_role ────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_user_role_user_id
+    ON user_role (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_role_tenant_id
+    ON user_role (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_role_client_id
+    ON user_role (client_id);
+
+-- ─── login ────────────────────────────────────────────────────────────────────
+CREATE UNIQUE INDEX IF NOT EXISTS uq_login_provider_user_id
+    ON login (login_provider, provider_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_login_email
+    ON login (email);
+
+-- ─── client_admin_tenants ─────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_cat_user_id
+    ON client_admin_tenants (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_cat_tenant_id
+    ON client_admin_tenants (tenant_id);
 
 -- ─── clients ──────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_clients_is_deleted

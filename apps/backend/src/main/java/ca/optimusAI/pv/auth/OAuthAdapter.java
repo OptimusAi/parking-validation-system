@@ -140,11 +140,13 @@ public class OAuthAdapter {
 
             String email = claims.getStringClaim("email");
 
-            String firstName = claims.getStringClaim("firstName");
-            String lastName  = claims.getStringClaim("lastName");
-            String name = buildName(firstName, lastName);
+            // OIDC standard claims: given_name / family_name; fall back to firstName / lastName
+            String firstName = claims.getStringClaim("given_name");
+            String lastName  = claims.getStringClaim("family_name");
+            if (firstName == null) firstName = claims.getStringClaim("firstName");
+            if (lastName  == null) lastName  = claims.getStringClaim("lastName");
 
-            return new JwtClaims(userId, email, name);
+            return new JwtClaims(userId, email, firstName, lastName);
 
         } catch (InvalidTokenException e) {
             throw e;
@@ -242,12 +244,5 @@ public class OAuthAdapter {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private String buildName(String firstName, String lastName) {
-        if (firstName == null && lastName == null) return null;
-        if (firstName == null) return lastName;
-        if (lastName == null) return firstName;
-        return firstName + " " + lastName;
-    }
 }
 

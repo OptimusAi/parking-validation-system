@@ -6,7 +6,9 @@ import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
 import ca.optimusAI.pv.user.entity.AppUser;
+import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
+import ca.optimusAI.pv.user.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -22,17 +24,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final AppUserRepository userRepository;
-    private final UserRoleService userRoleService;
+    private final AppUserRepository  userRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final UserRoleService    userRoleService;
 
     private static final List<String> VALID_ROLES =
             List.of("ADMIN", "CLIENT_ADMIN", "TENANT_ADMIN", "SUB_TENANT_ADMIN", "USER");
 
     /**
-     * List users scoped by role.
+     * List users scoped by caller role.
      * ADMIN: all users.
-     * CLIENT_ADMIN: users where tenant_id in assignedTenants.
-     * Others: 403.
+     * CLIENT_ADMIN: users whose user_role.client_id or user_role.tenant_id matches.
      */
     @Transactional(readOnly = true)
     public PageResponse<AppUser> list(int page, int size) {
@@ -44,13 +46,14 @@ public class UserService {
 
         if (TenantContext.hasRole("CLIENT_ADMIN")) {
             List<UUID> assignedTenants = TenantContext.assignedTenants();
-            if (assignedTenants.isEmpty()) {
-                // Fall back to clientId-based filter
-                UUID clientId = TenantContext.clientId();
-                if (clientId == null) throw new UnauthorizedTenantAccessException("No client assigned");
-                return PageResponse.of(userRepository.findByClientId(clientId, pr));
+            if (!assignedTenants.isEmpty()) {
+                List<UUID> userIds = userRoleRepository.findUserIdsByTenantIdIn(assignedTenants);
+                return PageResponse.of(userRepository.findByIdIn(userIds, pr));
             }
-            return PageResponse.of(userRepository.findByTenantIdIn(assignedTenants, pr));
+            UUID clientId = TenantContext.clientId();
+            if (clientId == null) throw new UnauthorizedTenantAccessException("No client assigned");
+            List<UUID> userIds = userRoleRepository.findUserIdsByClientId(clientId);
+            return PageResponse.of(userRepository.findByIdIn(userIds, pr));
         }
 
         throw new UnauthorizedTenantAccessException("Insufficient role to list users");
@@ -68,7 +71,7 @@ public class UserService {
     }
 
     /**
-     * Assign a role to a user.
+     * Assign a role to a user (upserts user_role row).
      * CLIENT_ADMIN cannot assign ADMIN or CLIENT_ADMIN roles.
      */
     @Transactional
@@ -76,8 +79,6 @@ public class UserService {
         if (!VALID_ROLES.contains(role)) {
             throw new UnauthorizedTenantAccessException("Invalid role: " + role);
         }
-
-        // CLIENT_ADMIN restriction
         if (TenantContext.hasRole("CLIENT_ADMIN")) {
             if ("ADMIN".equals(role) || "CLIENT_ADMIN".equals(role)) {
                 throw new UnauthorizedTenantAccessException(
@@ -87,11 +88,15 @@ public class UserService {
 
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
-        user.setRole(role);
-        AppUser saved = userRepository.save(user);
+
+        UserRole userRole = userRoleRepository.findByUserId(id)
+                .orElseGet(() -> UserRole.builder().userId(id).build());
+        userRole.setRole(role);
+        userRoleRepository.save(userRole);
+
         userRoleService.evictCache(user.getAuthProviderUserId());
         log.info("Assigned role={} to userId={}", role, id);
-        return saved;
+        return user;
     }
 
     /**
@@ -101,13 +106,17 @@ public class UserService {
     public AppUser assignTenant(UUID id, UUID tenantId, UUID clientId, UUID subTenantId) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
-        user.setTenantId(tenantId);
-        user.setClientId(clientId);
-        user.setSubTenantId(subTenantId);
-        AppUser saved = userRepository.save(user);
+
+        UserRole userRole = userRoleRepository.findByUserId(id)
+                .orElseGet(() -> UserRole.builder().userId(id).role("USER").build());
+        userRole.setTenantId(tenantId);
+        userRole.setClientId(clientId);
+        userRole.setSubTenantId(subTenantId);
+        userRoleRepository.save(userRole);
+
         userRoleService.evictCache(user.getAuthProviderUserId());
         log.info("Assigned tenantId={} clientId={} subTenantId={} to userId={}", tenantId, clientId, subTenantId, id);
-        return saved;
+        return user;
     }
 
     /** Deactivate a user. */

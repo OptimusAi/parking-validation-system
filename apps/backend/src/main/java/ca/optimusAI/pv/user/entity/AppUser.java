@@ -10,10 +10,7 @@ import java.util.UUID;
  * Application user — persisted in the app_user table.
  *
  * auth_provider_user_id links back to the OAuth provider's subject claim (sub).
- * role is one of: ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUB_TENANT_ADMIN | USER
- *
- * New users get role=USER and null tenant/client/subTenant — an ADMIN must
- * promote them via PUT /api/v1/users/{id}/role + PUT /api/v1/users/{id}/tenant.
+ * Role + tenant scope are stored separately in the user_role table.
  */
 @Entity
 @Table(name = "app_user")
@@ -34,30 +31,15 @@ public class AppUser {
     @Column(length = 200)
     private String email;
 
-    @Column(length = 200)
-    private String name;
+    @Column(name = "first_name", length = 100)
+    private String firstName;
 
-    @Column(name = "tenant_id")
-    private UUID tenantId;
-
-    @Column(name = "client_id")
-    private UUID clientId;
-
-    @Column(name = "sub_tenant_id")
-    private UUID subTenantId;
-
-    /** ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUB_TENANT_ADMIN | USER */
-    @Column(nullable = false, length = 30)
-    @Builder.Default
-    private String role = "USER";
+    @Column(name = "last_name", length = 100)
+    private String lastName;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = true;
-
-    /** BCrypt-hashed password for local/dev authentication. Null in production (OAuth2 only). */
-    @Column(name = "password_hash", length = 256)
-    private String passwordHash;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -75,5 +57,14 @@ public class AppUser {
     @PreUpdate
     protected void preUpdate() {
         updatedAt = Instant.now();
+    }
+
+    /** Returns the full display name by joining firstName and lastName. */
+    public String getFullName() {
+        String fn = firstName != null ? firstName.trim() : "";
+        String ln = lastName  != null ? lastName.trim()  : "";
+        if (fn.isEmpty()) return ln;
+        if (ln.isEmpty()) return fn;
+        return fn + " " + ln;
     }
 }

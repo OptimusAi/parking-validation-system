@@ -67,9 +67,10 @@ public class TmsTokenService {
                     .subject(claims.userId())
                     .issueTime(new Date(now))
                     .expirationTime(new Date(exp))
-                    .claim("email", claims.email())
-                    .claim("name",  claims.name())
-                    .claim("role",  claims.role());
+                    .claim("email",     claims.email())
+                    .claim("firstName", claims.firstName())
+                    .claim("lastName",  claims.lastName())
+                    .claim("role",      claims.role());
 
             if (claims.tenantId()    != null) builder.claim("tenantId",    claims.tenantId().toString());
             if (claims.clientId()    != null) builder.claim("clientId",    claims.clientId().toString());
@@ -139,7 +140,8 @@ public class TmsTokenService {
             return new TmsTokenClaims(
                     userId,
                     c.getStringClaim("email"),
-                    c.getStringClaim("name"),
+                    c.getStringClaim("firstName"),
+                    c.getStringClaim("lastName"),
                     c.getStringClaim("role"),
                     tenantId,
                     clientId,

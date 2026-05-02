@@ -12,7 +12,8 @@ import java.util.UUID;
 public record TmsTokenClaims(
         String userId,           // sub — authProviderUserId
         String email,
-        String name,
+        String firstName,
+        String lastName,
         String role,             // ADMIN | CLIENT_ADMIN | TENANT_ADMIN | SUB_TENANT_ADMIN | USER
         UUID   tenantId,         // nullable
         UUID   clientId,         // nullable

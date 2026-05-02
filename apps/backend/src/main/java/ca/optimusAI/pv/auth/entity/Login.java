@@ -40,9 +40,6 @@ public class Login {
     @Column(length = 128)
     private String email;
 
-    @Column(name = "email_prefix", length = 256)
-    private String emailPrefix;
-
     @Column(name = "last_login_date", nullable = false)
     private Instant lastLoginDate;
 
@@ -54,9 +51,6 @@ public class Login {
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "login_user_fk"))
     private AppUser user;
 
-    /** Stores the OAuth gtoken/access-token returned by the identity provider. */
-    @Column(columnDefinition = "TEXT")
-    private String gtoken;
 
     // ── Convenience factory ────────────────────────────────────────────────────
 
@@ -64,31 +58,19 @@ public class Login {
      * Build a brand-new Login from OAuth claims.
      * The caller is responsible for linking {@code user} before persisting.
      */
-    public static Login create(String loginProvider, String providerUserId, String email, String gtoken) {
-        String emailPrefix = null;
-        if (email != null) {
-            int at = email.indexOf('@');
-            emailPrefix = (at > 0) ? email.substring(0, at) : email;
-        }
+    public static Login create(String loginProvider, String providerUserId, String email) {
         return Login.builder()
                 .id(java.util.UUID.randomUUID().toString())
                 .loginProvider(loginProvider)
                 .providerUserId(providerUserId)
                 .email(email)
-                .emailPrefix(emailPrefix)
                 .lastLoginDate(Instant.now())
-                .gtoken(gtoken)
                 .build();
     }
 
     /** Update mutable fields on a subsequent login. */
-    public void updateOnLogin(String email, String gtoken) {
+    public void updateOnLogin(String email) {
         this.email = email;
-        if (email != null) {
-            int at = email.indexOf('@');
-            this.emailPrefix = (at > 0) ? email.substring(0, at) : email;
-        }
-        this.gtoken = gtoken;
         this.lastLoginDate = Instant.now();
     }
 }

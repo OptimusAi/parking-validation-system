@@ -6,16 +6,16 @@ import ca.optimusAI.pv.shared.TenantInfo;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
 import ca.optimusAI.pv.tenant.repository.ClientAdminTenantRepository;
 import ca.optimusAI.pv.user.entity.AppUser;
+import ca.optimusAI.pv.user.entity.UserRole;
 import ca.optimusAI.pv.user.repository.AppUserRepository;
+import ca.optimusAI.pv.user.repository.UserRoleRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,10 +40,7 @@ public class AuthController {
     private final LoginService                loginService;
     private final ClientAdminTenantRepository clientAdminTenantRepo;
     private final AppUserRepository           appUserRepository;
-    private final PasswordEncoder             passwordEncoder;
-
-    @Value("${oauth.local-auth-enabled:false}")
-    private boolean localAuthEnabled;
+    private final UserRoleRepository          userRoleRepository;
 
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")
@@ -60,11 +57,6 @@ public class AuthController {
             throw new InvalidTokenException(
                     "Provide 'Authorization: Bearer <oauth_token>' header or " +
                     "JSON body {\"username\": \"...\", \"password\": \"...\"}");
-        }
-
-        // ── Local dev auth (no OAuth server required) ────────────────────────
-        if (localAuthEnabled) {
-            return ResponseEntity.ok(processLocalCredentials(req.username(), req.password()));
         }
 
         // ── Production: OAuth2 password grant ───────────────────────────────
@@ -105,27 +97,6 @@ public class AuthController {
 
     // ── Core login logic ─────────────────────────────────────────────────────
 
-    /**
-     * Local dev auth: verify email + BCrypt password directly against app_user.
-     * Never called in production (guarded by localAuthEnabled flag).
-     */
-    private LoginResponse processLocalCredentials(String email, String password) {
-        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new InvalidTokenException("Invalid username or password"));
-
-        if (user.getPasswordHash() == null ||
-                !passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new InvalidTokenException("Invalid username or password");
-        }
-
-        if (!user.isActive()) {
-            throw new InvalidTokenException("Account is disabled");
-        }
-
-        log.debug("Local auth successful for email={} role={}", email, user.getRole());
-        return buildLoginResponse(user);
-    }
-
     private LoginResponse processOAuthToken(String oauthToken) {
         JwtClaims oauthClaims = oAuthAdapter.validateAndExtractClaims(oauthToken);
 
@@ -133,45 +104,53 @@ public class AuthController {
                 "oauth2",
                 oauthClaims.userId(),
                 oauthClaims.email(),
-                oauthClaims.name(),
-                oauthToken
+                oauthClaims.firstName(),
+                oauthClaims.lastName()
         );
 
         if (!user.isActive()) {
             throw new InvalidTokenException("Account is disabled");
         }
 
-        return buildLoginResponse(user);
+        UserRole userRole = userRoleRepository.findByUserId(user.getId()).orElse(null);
+        return buildLoginResponse(user, userRole);
     }
 
-    private LoginResponse buildLoginResponse(AppUser user) {
-        List<UUID> assignedTenants = "CLIENT_ADMIN".equals(user.getRole())
+    private LoginResponse buildLoginResponse(AppUser user, UserRole userRole) {
+        String role       = userRole != null ? userRole.getRole()        : "USER";
+        UUID tenantId     = userRole != null ? userRole.getTenantId()    : null;
+        UUID clientId     = userRole != null ? userRole.getClientId()    : null;
+        UUID subTenantId  = userRole != null ? userRole.getSubTenantId() : null;
+
+        List<UUID> assignedTenants = "CLIENT_ADMIN".equals(role)
                 ? clientAdminTenantRepo.findTenantIdsByUserId(user.getId())
                 : List.of();
 
         TmsTokenClaims tokenClaims = new TmsTokenClaims(
                 user.getAuthProviderUserId(),
                 user.getEmail(),
-                user.getName(),
-                user.getRole(),
-                user.getTenantId(),
-                user.getClientId(),
-                user.getSubTenantId(),
+                user.getFirstName(),
+                user.getLastName(),
+                role,
+                tenantId,
+                clientId,
+                subTenantId,
                 assignedTenants
         );
         String tmsToken = tmsTokenService.sign(tokenClaims);
 
-        log.debug("TMS token issued for userId={} role={}", user.getId(), user.getRole());
+        log.debug("TMS token issued for userId={} role={}", user.getId(), role);
 
         return new LoginResponse(
                 tmsToken,
-                user.getRole(),
-                user.getTenantId(),
-                user.getClientId(),
-                user.getSubTenantId(),
+                role,
+                tenantId,
+                clientId,
+                subTenantId,
                 assignedTenants,
                 user.getEmail(),
-                user.getName(),
+                user.getFirstName(),
+                user.getLastName(),
                 "Login successful"
         );
     }
