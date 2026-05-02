@@ -39,8 +39,8 @@ public class AuthController {
     private final TmsTokenService             tmsTokenService;
     private final LoginService                loginService;
     private final ClientAdminTenantRepository clientAdminTenantRepo;
-    private final AppUserRepository           appUserRepository;
-    private final UserRoleRepository          userRoleRepository;
+    private final AppUserRepository            appUserRepository;
+    private final UserRoleRepository           userRoleRepository;
 
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")

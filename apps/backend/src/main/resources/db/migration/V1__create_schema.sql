@@ -11,8 +11,6 @@ CREATE TABLE app_user (
     email                 VARCHAR(255),
     first_name            VARCHAR(100),
     last_name             VARCHAR(100),
-
-    password_hash         VARCHAR(256),   -- BCrypt; null in production (OAuth only)
     is_active             BOOLEAN      NOT NULL DEFAULT true,
     created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
