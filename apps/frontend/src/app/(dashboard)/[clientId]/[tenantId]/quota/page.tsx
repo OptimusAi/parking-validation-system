@@ -18,11 +18,11 @@ function QuotaCard({ title, used, limit }: { title: string; used: number; limit:
   return (
     <Card>
       <CardContent sx={{ p: 2.5 }}>
-        <Typography variant="body2" color="text.secondary" fontWeight={500} gutterBottom>
+        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }} gutterBottom>
           {title}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.5 }}>
-          <Typography variant="h4" fontWeight={700} color={textColor}>
+          <Typography variant="h4" sx={{ fontWeight: 700 }} color={textColor}>
             {pct}%
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -90,19 +90,19 @@ export default function QuotaPage() {
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
         {isLoading ? (
           [0, 1, 2].map((i) => (
-            <Grid item xs={12} sm={4} key={i}>
+            <Grid size={{ xs: 12, sm: 4 }} key={i}>
               <Skeleton variant="rectangular" height={130} sx={{ borderRadius: 2 }} />
             </Grid>
           ))
         ) : (
           <>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <QuotaCard title="Daily Quota" used={quota?.daily.used ?? 0} limit={quota?.daily.limit ?? 1} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <QuotaCard title="Weekly Quota" used={quota?.weekly.used ?? 0} limit={quota?.weekly.limit ?? 1} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <QuotaCard title="Monthly Quota" used={quota?.monthly.used ?? 0} limit={quota?.monthly.limit ?? 1} />
             </Grid>
           </>
@@ -111,9 +111,9 @@ export default function QuotaPage() {
 
       {/* Zone Breakdown */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 2.5 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Zone Breakdown</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>Zone Breakdown</Typography>
             <DataGrid
               rows={(quota?.byZone ?? []).map((z) => ({ id: z.zoneId, ...z }))}
               columns={zoneColumns}
@@ -125,9 +125,9 @@ export default function QuotaPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 2.5 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Sub-Tenant Breakdown</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>Sub-Tenant Breakdown</Typography>
             <DataGrid
               rows={(quota?.bySubTenant ?? []).map((s) => ({ id: s.subTenantId, ...s }))}
               columns={subColumns}

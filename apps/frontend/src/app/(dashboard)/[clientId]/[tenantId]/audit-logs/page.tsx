@@ -66,25 +66,25 @@ function AuditDetailRow({ row }: { row: AuditLog }) {
         }}
       >
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 130 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', minWidth: 130 }}>
             {format(new Date(row.timestamp), 'MMM d, h:mm:ss a')}
           </Typography>
           <Typography variant="body2" sx={{ minWidth: 140 }}>{row.actorEmail}</Typography>
           <Chip label={row.action.replace(/_/g, ' ')} size="small" color={ACTION_COLORS[row.action] ?? 'default'} />
           <Typography variant="body2" color="text.secondary">{row.entityType}</Typography>
-          <Typography variant="caption" fontFamily="monospace" color="text.secondary">{row.ipAddress}</Typography>
+          <Typography variant="caption" sx={{ fontFamily: 'monospace' }} color="text.secondary">{row.ipAddress}</Typography>
         </Box>
         {expanded ? <ExpandLess sx={{ fontSize: 18, color: 'text.secondary' }} /> : <ExpandMore sx={{ fontSize: 18, color: 'text.secondary' }} />}
       </Box>
       <Collapse in={expanded}>
         <Box sx={{ px: 2, py: 2, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" fontWeight={600} color="error.main" gutterBottom display="block">BEFORE</Typography>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }} color="error.main" gutterBottom>BEFORE</Typography>
               <JsonDisplay data={row.before ?? {}} bg="#FFEBEE" />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" fontWeight={600} color="success.main" gutterBottom display="block">AFTER</Typography>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }} color="success.main" gutterBottom>AFTER</Typography>
               <JsonDisplay data={row.after ?? {}} bg="#E8F5E9" />
             </Grid>
           </Grid>
@@ -114,7 +114,7 @@ export default function AuditLogsPage() {
     );
   }
 
-  const logs = data?.items ?? [];
+  const logs = data?.content ?? [];
 
   return (
     <Box>
@@ -127,7 +127,7 @@ export default function AuditLogsPage() {
             placeholder="Search by actor..."
             value={actorSearch}
             onChange={(e) => setActorSearch(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> }}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }}
             sx={{ minWidth: 220 }}
           />
           <FormControl sx={{ minWidth: 200 }}>
@@ -156,10 +156,10 @@ export default function AuditLogsPage() {
           <Box>
             {/* Header */}
             <Box sx={{ display: 'flex', px: 2, py: 1, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ minWidth: 130 }}>TIMESTAMP</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ minWidth: 140 }}>ACTOR</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ minWidth: 160 }}>ACTION</Typography>
-              <Typography variant="caption" fontWeight={700} color="text.secondary">ENTITY</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 130 }} color="text.secondary">TIMESTAMP</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 140 }} color="text.secondary">ACTOR</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 160 }} color="text.secondary">ACTION</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700 }} color="text.secondary">ENTITY</Typography>
             </Box>
             {logs.map((log) => (
               <AuditDetailRow key={log.id} row={log} />

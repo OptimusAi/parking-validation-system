@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Button, Chip, Stack, Dialog, DialogTitle, DialogContent,
   DialogActions, Select, MenuItem, FormControl, InputLabel,
-  Typography, Paper, Snackbar, Alert, CircularProgress,
+  Typography, Paper, Snackbar, Alert, CircularProgress, TextField,
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { Add, Download } from '@mui/icons-material';
@@ -60,7 +60,7 @@ export default function ReportsPage() {
     },
   });
 
-  const reports = data?.items ?? [];
+  const reports = data?.content ?? [];
 
   const columns: GridColDef<ReportJob>[] = [
     { field: 'type', headerName: 'Type', width: 200, valueFormatter: (v: string) => v.replace(/_/g, ' ') },
@@ -84,7 +84,7 @@ export default function ReportsPage() {
     {
       field: 'actions', headerName: 'Download', width: 120, sortable: false,
       renderCell: ({ row }) => (
-        <Stack alignItems="center" height="100%" justifyContent="center">
+        <Stack sx={{ height: '100%', alignItems: 'center', justifyContent: 'center' }}>
           {row.status === 'COMPLETED' && (
             <Button
               size="small"
@@ -142,8 +142,8 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
             <Stack direction="row" spacing={2}>
-              <TextField label="From Date" type="date" value={form.dateFrom} onChange={(e) => setForm((f) => ({ ...f, dateFrom: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
-              <TextField label="To Date" type="date" value={form.dateTo} onChange={(e) => setForm((f) => ({ ...f, dateTo: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField label="From Date" type="date" value={form.dateFrom} onChange={(e) => setForm((f) => ({ ...f, dateFrom: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+              <TextField label="To Date" type="date" value={form.dateTo} onChange={(e) => setForm((f) => ({ ...f, dateTo: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} fullWidth />
             </Stack>
           </Stack>
         </DialogContent>

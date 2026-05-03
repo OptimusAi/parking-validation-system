@@ -89,7 +89,7 @@ export default function ValidationsPage() {
     onError: () => setToast({ msg: 'Failed to cancel session', sev: 'error' }),
   });
 
-  const sessions = data?.items ?? [];
+  const sessions = data?.content ?? [];
 
   const extendSession = sessions.find((s) => s.id === extendId);
   const newEndTime = extendSession
@@ -105,7 +105,7 @@ export default function ValidationsPage() {
   };
 
   const columns: GridColDef<ValidationSession>[] = [
-    { field: 'licensePlate', headerName: 'License Plate', width: 140, renderCell: ({ value }) => <Typography fontFamily="monospace" fontWeight={600}>{value}</Typography> },
+    { field: 'licensePlate', headerName: 'License Plate', width: 140, renderCell: ({ value }) => <Typography sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{value}</Typography> },
     { field: 'zoneName', headerName: 'Zone', width: 130 },
     { field: 'subTenantName', headerName: 'Sub-Tenant', width: 140, valueGetter: (_, row) => row.subTenantName ?? '—' },
     { field: 'startTime', headerName: 'Start', width: 150, valueFormatter: (v: string) => format(new Date(v), 'MMM d, h:mm a') },
@@ -120,7 +120,7 @@ export default function ValidationsPage() {
     {
       field: 'actions', headerName: 'Actions', width: 140, sortable: false,
       renderCell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} alignItems="center" height="100%">
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', height: '100%' }}>
           {(row.status === 'ACTIVE' || row.status === 'EXTENDED') && (
             <>
               <Button
@@ -167,7 +167,7 @@ export default function ValidationsPage() {
             placeholder="Search plate..."
             value={plateSearch}
             onChange={(e) => setPlateSearch(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> }}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }}
             sx={{ minWidth: 200 }}
           />
           <FormControl sx={{ minWidth: 140 }}>
@@ -214,7 +214,7 @@ export default function ValidationsPage() {
             label="Additional Minutes"
             value={extendMins}
             onChange={(e) => setExtendMins(Math.min(480, Math.max(1, parseInt(e.target.value) || 1)))}
-            inputProps={{ min: 1, max: 480 }}
+            slotProps={{ htmlInput: { min: 1, max: 480 } }}
             sx={{ mt: 1 }}
           />
           {newEndTime && (

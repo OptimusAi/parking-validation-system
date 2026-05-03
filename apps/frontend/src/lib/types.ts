@@ -27,6 +27,9 @@ export interface TenantBranding {
 export interface Client {
   id: string;
   name: string;
+  plan?: string;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface Tenant {
@@ -134,10 +137,12 @@ export interface QuotaUsage {
 // ─── API Response Wrappers ───────────────────────────────────────────────────
 
 export interface PageResponse<T> {
-  items: T[];
-  total: number;
+  content: T[];
   page: number;
-  pageSize: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
 }
 
 export interface PageParams {

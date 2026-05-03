@@ -39,7 +39,8 @@ function buildNavItems(clientId: string, tenantId: string): NavItem[] {
     { label: 'Audit Logs', href: `/${clientId}/${tenantId}/audit-logs`, icon: History, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
     { label: 'Branding', href: `/${clientId}/${tenantId}/settings/branding`, icon: Palette, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
     { label: 'Users', href: `/${clientId}/${tenantId}/users`, icon: People, roles: ['ADMIN', 'CLIENT_ADMIN'] },
-    { label: 'Tenants', href: `/${clientId}/tenants`, icon: Business, roles: ['ADMIN', 'CLIENT_ADMIN'] },
+    { label: 'Tenants', href: `/admin/tenants`, icon: Business, roles: ['ADMIN'] },
+    { label: 'Tenants', href: `/${clientId}/tenants`, icon: Business, roles: ['CLIENT_ADMIN'] },
   ];
 }
 
@@ -107,7 +108,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
           P
         </Avatar>
         <Box>
-          <Typography variant="body2" fontWeight={700} color="text.primary" noWrap>
+          <Typography variant="body2" sx={{ fontWeight: 700 }} color="text.primary" noWrap>
             TMS Parking
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
@@ -166,9 +167,10 @@ function SidebarContent({ onClose }: SidebarContentProps) {
                   </ListItemIcon>
                   <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: active ? 600 : 400,
+                    slotProps={{
+                      primary: {
+                        sx: { fontSize: '0.875rem', fontWeight: active ? 600 : 400 },
+                      },
                     }}
                   />
                 </ListItemButton>
@@ -185,11 +187,11 @@ function SidebarContent({ onClose }: SidebarContentProps) {
             {initials}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" fontWeight={600} noWrap>
+            <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
               {currentUserName ?? 'User'}
             </Typography>
             <Tooltip title={currentUserEmail ?? ''}>
-              <Typography variant="caption" color="text.secondary" noWrap display="block">
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                 {currentUserEmail}
               </Typography>
             </Tooltip>

@@ -79,7 +79,7 @@ export default function SubTenantsPage() {
     {
       field: 'actions', headerName: 'Actions', width: 90, sortable: false,
       renderCell: ({ row }) => (
-        <Stack direction="row" alignItems="center" height="100%">
+        <Stack direction="row" sx={{ alignItems: 'center', height: '100%' }}>
           <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => openEdit(row)}><Edit sx={{ fontSize: 16 }} /></Button>
         </Stack>
       ),

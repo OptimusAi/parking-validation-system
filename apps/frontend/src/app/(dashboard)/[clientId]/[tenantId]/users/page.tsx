@@ -44,7 +44,7 @@ export default function UsersPage() {
     );
   }
 
-  const users = data?.items ?? [];
+  const users = data?.content ?? [];
 
   const allowedRoles = (currentUserRole: Role): Role[] => {
     if (currentUserRole === 'ADMIN') return ALL_ROLES;

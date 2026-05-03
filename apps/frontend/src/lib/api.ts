@@ -7,7 +7,7 @@
 import { apiClient } from './apiClient';
 import type {
   PageResponse, PageParams, ValidationSession, ValidationLink,
-  ReportJob, AuditLog, User, Zone, Tenant, TenantBranding, QuotaUsage, SubTenant,
+  ReportJob, AuditLog, User, Zone, Tenant, TenantBranding, QuotaUsage, SubTenant, Client,
 } from './types';
 import { useTenantStore } from '@/store/tenantStore';
 
@@ -212,7 +212,7 @@ export async function getZones(): Promise<Zone[]> {
     params: { tenantId: tenantId() },
   });
   // Backend returns PageResponse or array; normalise to array
-  return Array.isArray(data) ? data : data.items ?? [];
+  return Array.isArray(data) ? data : data.content ?? [];
 }
 
 export async function createZone(data: Omit<Zone, 'id' | 'activeSessions'>): Promise<Zone> {
@@ -232,23 +232,39 @@ export async function deleteZone(id: string): Promise<void> {
   await apiClient.delete(`/api/v1/zones/${id}`);
 }
 
+// ─── Clients ─────────────────────────────────────────────────────────────────
+
+export async function listClients(params?: PageParams): Promise<PageResponse<Client>> {
+  const { data } = await apiClient.get(`/api/v1/clients`, {
+    params: { page: params?.page ?? 0, pageSize: params?.pageSize ?? 50 },
+  });
+  return data;
+}
+
+export async function createClient(data: { name: string; plan?: string }): Promise<Client> {
+  const { data: result } = await apiClient.post(`/api/v1/clients`, data);
+  return result;
+}
+
 // ─── Tenants ─────────────────────────────────────────────────────────────────
 
 export async function getTenants(): Promise<Tenant[]> {
   const { data } = await apiClient.get(`/api/v1/tenants`, {
     params: { clientId: clientId() },
   });
-  return Array.isArray(data) ? data : data.items ?? [];
+  return Array.isArray(data) ? data : data.content ?? [];
 }
 
 export async function createTenant(data: {
   name: string;
-  primaryColor: string;
-  accentColor: string;
+  primaryColor?: string;
+  accentColor?: string;
+  clientId?: string;
 }): Promise<Tenant> {
+  const resolvedClientId = data.clientId || clientId();
   const { data: result } = await apiClient.post(`/api/v1/tenants`, {
-    ...data,
-    clientId: clientId(),
+    name: data.name,
+    clientId: resolvedClientId || null,
   });
   return result;
 }
@@ -259,7 +275,7 @@ export async function getSubTenants(tid: string): Promise<SubTenant[]> {
   const { data } = await apiClient.get(`/api/v1/sub-tenants`, {
     params: { tenantId: tid },
   });
-  return Array.isArray(data) ? data : data.items ?? [];
+  return Array.isArray(data) ? data : data.content ?? [];
 }
 
 export async function createSubTenant(data: { name: string; tenantId: string }): Promise<SubTenant> {
@@ -304,6 +320,8 @@ export const api = {
   getSubTenants,
   createSubTenant,
   updateSubTenant,
+  listClients,
+  createClient,
 };
 
 /** Alias kept for backward-compatibility with pages that import { mockApi } */

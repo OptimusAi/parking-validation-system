@@ -80,11 +80,11 @@ export default function BrandingPage() {
 
       <Grid container spacing={3}>
         {/* Left: Settings */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Stack spacing={3}>
             {/* Logo Section */}
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>Logo</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>Logo</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Upload your logo (PNG, SVG, or JPG, max 2MB)
               </Typography>
@@ -109,7 +109,7 @@ export default function BrandingPage() {
                 {logoPreview ? (
                   <Box>
                     <img src={logoPreview} alt="Logo preview" style={{ maxHeight: 80, maxWidth: 200, objectFit: 'contain' }} />
-                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 1 }} color="text.secondary">
                       {logoFile?.name ?? 'Current logo'}
                     </Typography>
                   </Box>
@@ -127,7 +127,7 @@ export default function BrandingPage() {
 
             {/* Colors Section */}
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>Brand Colors</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>Brand Colors</Typography>
               <Stack spacing={2.5}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <TextField
@@ -136,10 +136,10 @@ export default function BrandingPage() {
                     value={primary}
                     onChange={(e) => setPrimary(e.target.value)}
                     sx={{ width: 120 }}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>{primary}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{primary}</Typography>
                     <Typography variant="caption" color="text.secondary">Used for buttons, highlights</Typography>
                   </Box>
                   <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: primary, ml: 'auto', border: '1px solid rgba(0,0,0,0.1)' }} />
@@ -151,10 +151,10 @@ export default function BrandingPage() {
                     value={accent}
                     onChange={(e) => setAccent(e.target.value)}
                     sx={{ width: 120 }}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>{accent}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{accent}</Typography>
                     <Typography variant="caption" color="text.secondary">Used for secondary elements</Typography>
                   </Box>
                   <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: accent, ml: 'auto', border: '1px solid rgba(0,0,0,0.1)' }} />
@@ -176,9 +176,9 @@ export default function BrandingPage() {
         </Grid>
 
         {/* Right: Live Preview */}
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Paper sx={{ p: 3, position: 'sticky', top: 80 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Live Preview</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>Live Preview</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               This is how your validation page will look.
             </Typography>
@@ -201,7 +201,7 @@ export default function BrandingPage() {
                     <LocalParking />
                   </Avatar>
                 )}
-                <Typography variant="body1" fontWeight={700}>Downtown Parking</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700 }}>Downtown Parking</Typography>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>Parking Validation</Typography>
               </Box>
 
@@ -233,7 +233,7 @@ export default function BrandingPage() {
               <Box sx={{ p: 2, bgcolor: '#F1F8E9', borderTop: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CheckCircle sx={{ color: '#2E7D32', fontSize: 20 }} />
-                  <Typography variant="body2" fontWeight={600} color="#2E7D32">Parking Validated!</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }} color="#2E7D32">Parking Validated!</Typography>
                 </Box>
                 <Box sx={{ mt: 1, p: 1, bgcolor: accent, borderRadius: 1 }}>
                   <Typography variant="caption" color="white">Valid until 2:30 PM</Typography>

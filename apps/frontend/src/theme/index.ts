@@ -63,10 +63,6 @@ export function createTenantTheme(branding?: Partial<BrandingColors>): Theme {
             borderRadius: 8,
             padding: '8px 20px',
           },
-          containedPrimary: {
-            boxShadow: `0 2px 8px ${primary}40`,
-            '&:hover': { boxShadow: `0 4px 12px ${primary}60` },
-          },
         },
       },
       MuiCard: {
@@ -89,20 +85,6 @@ export function createTenantTheme(branding?: Partial<BrandingColors>): Theme {
       MuiChip: {
         styleOverrides: {
           root: { fontWeight: 600, borderRadius: 6 },
-        },
-      },
-      MuiDataGrid: {
-        styleOverrides: {
-          root: {
-            border: 'none',
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: '#F8FAFC',
-              borderBottom: '1px solid #E2E8F0',
-            },
-            '& .MuiDataGrid-cell': {
-              borderBottom: '1px solid #F1F5F9',
-            },
-          },
         },
       },
       MuiAppBar: {

@@ -72,7 +72,7 @@ export default function LinksPage() {
     setToast({ msg: 'PDF ready!', sev: 'success' });
   };
 
-  const links = data?.items ?? [];
+  const links = data?.content ?? [];
 
   const columns: GridColDef<ValidationLink>[] = [
     { field: 'label', headerName: 'Label', flex: 1, minWidth: 140, valueGetter: (_, row) => row.label ?? '—' },
@@ -95,7 +95,7 @@ export default function LinksPage() {
     {
       field: 'actions', headerName: 'Actions', width: 180, sortable: false,
       renderCell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} alignItems="center" height="100%">
+        <Stack direction="row" spacing={0.5} sx={{ height: '100%', alignItems: 'center' }}>
           <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => setQrLink(row)}>
             <QrCode2 sx={{ fontSize: 16 }} />
           </Button>
@@ -163,7 +163,7 @@ export default function LinksPage() {
               type="number"
               value={form.durationMinutes}
               onChange={(e) => setForm((f) => ({ ...f, durationMinutes: parseInt(e.target.value) || 60 }))}
-              inputProps={{ min: 1, max: 1440 }}
+              slotProps={{ htmlInput: { min: 1, max: 1440 } }}
             />
             <TextField
               label="Label (optional)"
@@ -176,7 +176,7 @@ export default function LinksPage() {
               type="date"
               value={form.expiresAt}
               onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
           </Stack>
         </DialogContent>
@@ -198,7 +198,7 @@ export default function LinksPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2, gap: 2 }}>
             <QRCodeSVG value={qrLink?.url ?? 'https://tms.cpa.ca/validate/mock-token-123'} size={256} />
-            <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ maxWidth: 280, wordBreak: 'break-all' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 280, wordBreak: 'break-all' }}>
               {qrLink?.url}
             </Typography>
             <Button

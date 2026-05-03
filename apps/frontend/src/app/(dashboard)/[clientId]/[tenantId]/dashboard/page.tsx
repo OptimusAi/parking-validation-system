@@ -33,10 +33,10 @@ function MetricCard({ title, value, icon: Icon, color, bg, subtitle }: MetricCar
       <CardContent sx={{ p: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="body2" color="text.secondary" fontWeight={500} gutterBottom>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }} gutterBottom>
               {title}
             </Typography>
-            <Typography variant="h4" fontWeight={700} color="text.primary">
+            <Typography variant="h4" sx={{ fontWeight: 700 }} color="text.primary">
               {value}
             </Typography>
             {subtitle && (
@@ -66,7 +66,9 @@ export default function DashboardPage() {
   const barData: { date: string; count: number }[] = [];
   const lineData: { date: string; count: number }[] = [];
 
-  const quotaPct = quota ? Math.round((quota.daily.used / quota.daily.limit) * 100) : 0;
+  const quotaPct = quota?.daily?.limit
+    ? Math.round((quota.daily.used / quota.daily.limit) * 100)
+    : 0;
   const quotaColor = quotaPct >= 90 ? '#D32F2F' : quotaPct >= 70 ? '#ED6C02' : '#2E7D32';
 
   return (
@@ -75,7 +77,7 @@ export default function DashboardPage() {
 
       {/* Metrics */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           {isLoading ? (
             <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 2 }} />
           ) : (
@@ -88,7 +90,7 @@ export default function DashboardPage() {
             />
           )}
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           {isLoading ? (
             <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 2 }} />
           ) : (
@@ -101,7 +103,7 @@ export default function DashboardPage() {
             />
           )}
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           {isLoading ? (
             <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 2 }} />
           ) : (
@@ -114,7 +116,7 @@ export default function DashboardPage() {
             />
           )}
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           {isLoading ? (
             <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 2 }} />
           ) : (
@@ -132,9 +134,9 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} lg={7}>
+        <Grid size={{ xs: 12, lg: 7 }}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
+            <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>
               Validations per Zone — Last 7 Days
             </Typography>
             <Box sx={{ height: 280, mt: 2 }}>
@@ -154,9 +156,9 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} lg={5}>
+        <Grid size={{ xs: 12, lg: 5 }}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
+            <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom>
               Daily Validations — Last 30 Days
             </Typography>
             <Box sx={{ height: 280, mt: 2 }}>

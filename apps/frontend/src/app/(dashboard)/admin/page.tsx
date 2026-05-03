@@ -13,7 +13,7 @@ const ADMIN_SECTIONS = [
     icon: Business,
     color: '#1565C0',
     bg: '#E3F2FD',
-    href: '#', // future: /admin/clients
+    href: '/admin/clients',
   },
   {
     label: 'Users',

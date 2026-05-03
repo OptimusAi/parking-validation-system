@@ -54,7 +54,7 @@ export default function ZonesPage() {
     {
       field: 'actions', headerName: 'Actions', width: 120, sortable: false,
       renderCell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} alignItems="center" height="100%">
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', height: '100%' }}>
           <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => openEdit(row)}><Edit sx={{ fontSize: 16 }} /></Button>
           <Button size="small" variant="outlined" color="error" sx={{ minWidth: 0, px: 1 }} onClick={() => setDeleteZone(row)}><Delete sx={{ fontSize: 16 }} /></Button>
         </Stack>

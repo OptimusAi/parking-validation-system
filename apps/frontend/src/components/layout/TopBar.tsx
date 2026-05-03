@@ -96,7 +96,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                 <Typography
                   key={crumb.href}
                   variant="body2"
-                  fontWeight={600}
+                  sx={{ fontWeight: 600 }}
                   color="text.primary"
                   noWrap
                 >

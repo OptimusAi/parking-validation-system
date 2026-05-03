@@ -8,7 +8,7 @@ import {
   CircularProgress, Alert, Avatar, Stack, Divider,
 } from '@mui/material';
 import {
-  CheckCircle, LocalParking, ErrorOutline, AccessTime, Place,
+  CheckCircle, LocalParking, ErrorOutlined, AccessTime, Place,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { mockApi } from '@/lib/api';
@@ -74,7 +74,7 @@ export default function ValidatePage() {
           >
             <LocalParking sx={{ fontSize: 30 }} />
           </Avatar>
-          <Typography variant="h5" fontWeight={700} color="text.primary">
+          <Typography variant="h5" sx={{ fontWeight: 700 }} color="text.primary">
             Downtown Parking
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -89,7 +89,7 @@ export default function ValidatePage() {
               <Stack direction="row" spacing={2} sx={{ mb: 3, p: 2, bgcolor: `${primaryColor}08`, borderRadius: 2 }}>
                 <Place sx={{ color: primaryColor, mt: 0.25 }} />
                 <Box>
-                  <Typography variant="body2" fontWeight={600}>{link.zoneName}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{link.zoneName}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     {link.durationMinutes >= 60
                       ? `${link.durationMinutes / 60}h`
@@ -105,16 +105,16 @@ export default function ValidatePage() {
             {pageState === 'success' && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <CheckCircle sx={{ fontSize: 72, color: 'success.main', mb: 2 }} />
-                <Typography variant="h5" fontWeight={700} color="success.main" gutterBottom>
+                <Typography variant="h5" sx={{ fontWeight: 700 }} color="success.main" gutterBottom>
                   Parking Validated!
                 </Typography>
                 <Typography variant="body1" color="text.secondary" gutterBottom>
                   Your parking is validated.
                 </Typography>
                 <Box sx={{ mt: 3, p: 2, bgcolor: 'success.main', borderRadius: 2, color: 'white' }}>
-                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                     <AccessTime sx={{ fontSize: 18 }} />
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       Valid until {validUntil ? format(new Date(validUntil), 'h:mm a, MMM d') : ''}
                     </Typography>
                   </Stack>
@@ -137,8 +137,8 @@ export default function ValidatePage() {
             {/* Error State */}
             {pageState === 'error' && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
-                <ErrorOutline sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
-                <Typography variant="h6" fontWeight={600} color="error.main" gutterBottom>
+                <ErrorOutlined sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+                <Typography variant="h6" sx={{ fontWeight: 600 }} color="error.main" gutterBottom>
                   {errorCode === 'ALREADY_VALIDATED'
                     ? 'Already Validated'
                     : errorCode === 'QUOTA_EXCEEDED'
@@ -165,7 +165,7 @@ export default function ValidatePage() {
             {/* Form State */}
             {pageState === 'form' && (
               <Box>
-                <Typography variant="body1" fontWeight={600} gutterBottom>
+                <Typography variant="body1" sx={{ fontWeight: 600 }} gutterBottom>
                   Enter Your License Plate
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -177,7 +177,7 @@ export default function ValidatePage() {
                   value={plate}
                   onChange={(e) => handlePlateChange(e.target.value)}
                   placeholder="e.g. ABC123"
-                  inputProps={{ style: { textTransform: 'uppercase', fontSize: '1.25rem', letterSpacing: 4, textAlign: 'center' } }}
+                  slotProps={{ htmlInput: { style: { textTransform: 'uppercase', fontSize: '1.25rem', letterSpacing: 4, textAlign: 'center' } } }}
                   sx={{ mb: 3 }}
                   size="medium"
                 />
@@ -203,7 +203,7 @@ export default function ValidatePage() {
           </CardContent>
         </Card>
 
-        <Typography variant="caption" color="text.secondary" textAlign="center" display="block" sx={{ mt: 2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, textAlign: 'center', display: 'block' }}>
           Powered by TMS Parking Validation
         </Typography>
       </Box>
