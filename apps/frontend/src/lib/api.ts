@@ -249,8 +249,17 @@ export async function createClient(data: { name: string; plan?: string }): Promi
 // ─── Tenants ─────────────────────────────────────────────────────────────────
 
 export async function getTenants(): Promise<Tenant[]> {
+  const { role, clientId: cid } = useTenantStore.getState();
+  const params: Record<string, unknown> = { pageSize: 200 };
+  // Only filter by clientId for CLIENT_ADMIN (ADMIN sees all tenants)
+  if (role !== 'ADMIN' && cid) params.clientId = cid;
+  const { data } = await apiClient.get(`/api/v1/tenants`, { params });
+  return Array.isArray(data) ? data : data.content ?? [];
+}
+
+export async function getTenantsForClient(cid: string): Promise<Tenant[]> {
   const { data } = await apiClient.get(`/api/v1/tenants`, {
-    params: { clientId: clientId() },
+    params: { clientId: cid, pageSize: 200 },
   });
   return Array.isArray(data) ? data : data.content ?? [];
 }
@@ -316,6 +325,7 @@ export const api = {
   updateZone,
   deleteZone,
   getTenants,
+  getTenantsForClient,
   createTenant,
   getSubTenants,
   createSubTenant,

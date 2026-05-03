@@ -3,15 +3,12 @@
 import { Box, Typography, Button, Paper } from '@mui/material';
 import { LocalParking, ErrorOutlined } from '@mui/icons-material';
 import { useAuthStore } from '@/store/authStore';
-import { useRouter } from 'next/navigation';
 
 export default function NoAccessPage() {
-  const logout = useAuthStore((s) => s.logout);
-  const router = useRouter();
+  const signOut = useAuthStore((s) => s.signOut);
 
   const handleSignOut = () => {
-    logout();
-    router.replace('/login');
+    signOut();
   };
 
   return (

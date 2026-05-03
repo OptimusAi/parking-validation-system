@@ -71,7 +71,16 @@ interface AuthState {
   /** Production: exchange an OAuth implicit-flow access_token for a TMS JWT.
    *  Mirrors TMS oauth.jsx → ApiHelper.login(token) → POST /login with Bearer header. */
   loginWithOAuthToken: (oauthToken: string) => Promise<LoginResult>;
+  /** Clears local state only (used internally or when OAuth redirect is not needed) */
   logout: () => void;
+  /**
+   * Full TMS-equivalent signOut:
+   *  1. POST /api/auth/logout (invalidate server session if any)
+   *  2. Clear local token + store
+   *  3. Redirect to OAuth server logout URL so its session cookie is destroyed
+   *     Mirrors TMS userMenu.jsx → signOut()
+   */
+  signOut: () => Promise<void>;
 }
 
 // ── Shared helper: apply a successful LoginResponse ──────────────────────────
@@ -86,8 +95,8 @@ function applyLoginResponse(data: LoginResponse): LoginResult {
   useTenantStore.getState().setContext({
     email: data.email,
     name,
-    clientId: data.clientId ?? '',
-    tenantId: data.tenantId ?? assignedTenants[0] ?? '',
+    clientId: data.clientId ?? null,
+    tenantId: data.tenantId ?? assignedTenants[0] ?? null,
     role,
     branding: { logoUrl: null, primaryColor: '#1B4F8A', accentColor: '#2E86C1' },
   });
@@ -158,6 +167,37 @@ export const useAuthStore = create<AuthState>()(
         clearAuthToken();
         useTenantStore.getState().clearContext();
         set({ isLoggedIn: false, currentEmail: null, error: null });
+      },
+
+      // Mirrors TMS userMenu.jsx signOut() exactly:
+      // POST /user/logout → cleanLocalStorage() → window.location.href = logoutUrl + origin
+      signOut: async () => {
+        try {
+          // 1. Notify backend (fire-and-forget; stateless JWT so it's optional)
+          await apiClient.post('/api/auth/logout').catch(() => { /* ignore errors */ });
+        } finally {
+          // 2. Clear local token + store state
+          clearAuthToken();
+          useTenantStore.getState().clearContext();
+          set({ isLoggedIn: false, currentEmail: null, error: null });
+
+          // 3. Fetch logout URL from backend and redirect to destroy OAuth session
+          //    Same as TMS: GET /client/config/public/logout → { logoutUrl } → redirect
+          try {
+            const { data } = await apiClient.get<{ logoutUrl: string }>('/api/auth/logout-url');
+            if (data?.logoutUrl) {
+              // logoutUrl = "{oauthHost}/exit?redirect_uri=" — append origin so OAuth server
+              // redirects back to our app after clearing its session (TMS generateRedirectUrl())
+              window.location.href = data.logoutUrl + window.location.origin + '/login';
+              return;
+            }
+          } catch {
+            // fall through to hard redirect below
+          }
+
+          // Fallback: redirect to login page directly
+          window.location.href = '/login';
+        }
       },
     }),
     { name: 'tms-auth-store' }

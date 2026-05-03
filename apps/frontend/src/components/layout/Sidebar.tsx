@@ -11,7 +11,7 @@ import {
 import {
   Dashboard, DirectionsCar, QrCode2, LocationOn, Business,
   Assessment, PieChart, History, Palette, People, Logout,
-  Apartment,
+  Apartment, AdminPanelSettings,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantStore } from '@/store/tenantStore';
@@ -27,20 +27,28 @@ interface NavItem {
   roles: string[];
 }
 
-function buildNavItems(clientId: string, tenantId: string): NavItem[] {
+function buildNavItems(clientId: string | null, tenantId: string | null): NavItem[] {
+  const tenantItems: NavItem[] = tenantId ? [
+    { label: 'Dashboard', href: clientId ? `/${clientId}/${tenantId}/dashboard` : '#', icon: Dashboard, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
+    { label: 'Validations', href: clientId ? `/${clientId}/${tenantId}/validations` : '#', icon: DirectionsCar, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
+    { label: 'Links', href: clientId ? `/${clientId}/${tenantId}/links` : '#', icon: QrCode2, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
+    { label: 'Zones', href: clientId ? `/${clientId}/${tenantId}/zones` : '#', icon: LocationOn, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Sub-Tenants', href: clientId ? `/${clientId}/${tenantId}/sub-tenants` : '#', icon: Apartment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Reports', href: clientId ? `/${clientId}/${tenantId}/reports` : '#', icon: Assessment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Quota', href: clientId ? `/${clientId}/${tenantId}/quota` : '#', icon: PieChart, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Audit Logs', href: clientId ? `/${clientId}/${tenantId}/audit-logs` : '#', icon: History, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Branding', href: clientId ? `/${clientId}/${tenantId}/settings/branding` : '#', icon: Palette, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
+    { label: 'Users', href: clientId ? `/${clientId}/${tenantId}/users` : '#', icon: People, roles: ['ADMIN', 'CLIENT_ADMIN'] },
+  ] : [];
   return [
-    { label: 'Dashboard', href: `/${clientId}/${tenantId}/dashboard`, icon: Dashboard, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
-    { label: 'Validations', href: `/${clientId}/${tenantId}/validations`, icon: DirectionsCar, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
-    { label: 'Links', href: `/${clientId}/${tenantId}/links`, icon: QrCode2, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
-    { label: 'Zones', href: `/${clientId}/${tenantId}/zones`, icon: LocationOn, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Sub-Tenants', href: `/${clientId}/${tenantId}/sub-tenants`, icon: Apartment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Reports', href: `/${clientId}/${tenantId}/reports`, icon: Assessment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Quota', href: `/${clientId}/${tenantId}/quota`, icon: PieChart, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Audit Logs', href: `/${clientId}/${tenantId}/audit-logs`, icon: History, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Branding', href: `/${clientId}/${tenantId}/settings/branding`, icon: Palette, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
-    { label: 'Users', href: `/${clientId}/${tenantId}/users`, icon: People, roles: ['ADMIN', 'CLIENT_ADMIN'] },
-    { label: 'Tenants', href: `/admin/tenants`, icon: Business, roles: ['ADMIN'] },
-    { label: 'Tenants', href: `/${clientId}/tenants`, icon: Business, roles: ['CLIENT_ADMIN'] },
+    // Admin-scoped (always visible to ADMIN regardless of tenant context)
+    { label: 'Admin', href: '/admin', icon: AdminPanelSettings, roles: ['ADMIN'] },
+    { label: 'Clients', href: '/admin/clients', icon: Business, roles: ['ADMIN'] },
+    { label: 'Tenants', href: '/admin/tenants', icon: Business, roles: ['ADMIN'] },
+    // CLIENT_ADMIN tenant list
+    { label: 'Tenants', href: clientId ? `/${clientId}/tenants` : '#', icon: Business, roles: ['CLIENT_ADMIN'] },
+    // Tenant-scoped (shown when a tenant is selected)
+    ...tenantItems,
   ];
 }
 
@@ -52,11 +60,14 @@ function SidebarContent({ onClose }: SidebarContentProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ clientId?: string; tenantId?: string }>();
-  const clientId = params?.clientId ?? '11111111-1111-1111-1111-111111111111';
-  const tenantId = params?.tenantId ?? '22222222-2222-2222-2222-222222222222';
+  const storeClientId = useTenantStore((s) => s.clientId);
+  const storeTenantId = useTenantStore((s) => s.tenantId);
+  // For tenant-scoped nav, tenantId is enough — clientId resolved from tenant object on switch
+  const clientId = params?.clientId ?? (storeClientId || null);
+  const tenantId = params?.tenantId ?? (storeTenantId || null);
 
   const { currentUserEmail, currentUserName, role, branding, switchTenant } = useTenantStore();
-  const logout = useAuthStore((s) => s.logout);
+  const signOut = useAuthStore((s) => s.signOut);
 
   const { data: tenants } = useQuery({
     queryKey: ['tenants'],
@@ -76,8 +87,12 @@ function SidebarContent({ onClose }: SidebarContentProps) {
     : 'U';
 
   const handleTenantSwitch = (newTenantId: string) => {
-    switchTenant(newTenantId, undefined);
-    router.push(`/${clientId}/${newTenantId}/dashboard`);
+    const tenant = tenants?.find((t) => t.id === newTenantId);
+    const resolvedClientId = tenant?.clientId ?? clientId;
+    switchTenant(newTenantId, resolvedClientId, undefined);
+    if (resolvedClientId) {
+      router.push(`/${resolvedClientId}/${newTenantId}/dashboard`);
+    }
     onClose?.();
   };
 
@@ -117,17 +132,23 @@ function SidebarContent({ onClose }: SidebarContentProps) {
         </Box>
       </Box>
 
-      {/* Tenant Switcher (ADMIN only) */}
-      {(role === 'ADMIN' || role === 'CLIENT_ADMIN') && tenants && (
+      {/* Tenant Switcher (ADMIN / CLIENT_ADMIN only) */}
+      {(role === 'ADMIN' || role === 'CLIENT_ADMIN') && (
         <Box sx={{ px: 2, pt: 2 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Tenant</InputLabel>
             <Select
               label="Tenant"
-              value={tenantId}
+              value={tenantId ?? ''}
+              displayEmpty
               onChange={(e) => handleTenantSwitch(e.target.value)}
             >
-              {tenants.map((t) => (
+              {!tenants?.length && (
+                <MenuItem value="" disabled>
+                  {tenants ? 'No tenants found' : 'Loading…'}
+                </MenuItem>
+              )}
+              {tenants?.map((t) => (
                 <MenuItem key={t.id} value={t.id}>
                   {t.name}
                 </MenuItem>
@@ -140,41 +161,55 @@ function SidebarContent({ onClose }: SidebarContentProps) {
       {/* Navigation */}
       <Box sx={{ flex: 1, overflow: 'auto', py: 1 }}>
         <List dense disablePadding>
-          {visibleItems.map((item) => {
+          {visibleItems.map((item, index) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(item.href + '/');
+            // For "Admin" href, only exact match is active (not all /admin/* pages)
+            const active = item.href === '/admin'
+              ? pathname === '/admin'
+              : pathname === item.href || pathname.startsWith(item.href + '/');
+            // Show divider before first tenant-scoped item (Dashboard) when role is ADMIN
+            const showDivider = role === 'ADMIN' && item.label === 'Dashboard' && index > 0;
             return (
-              <ListItem key={item.href} disablePadding sx={{ px: 1, mb: 0.25 }}>
-                <ListItemButton
-                  component={NextLink}
-                  href={item.href}
-                  onClick={onClose}
-                  selected={active}
-                  sx={{
-                    borderRadius: 1.5,
-                    py: 0.875,
-                    '&.Mui-selected': {
-                      bgcolor: 'primary.light',
-                      color: 'primary.main',
-                      '& .MuiListItemIcon-root': { color: 'primary.main' },
-                      '&:hover': { bgcolor: 'primary.light' },
-                    },
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
-                    <Icon sx={{ fontSize: 20 }} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    slotProps={{
-                      primary: {
-                        sx: { fontSize: '0.875rem', fontWeight: active ? 600 : 400 },
+              <Box key={item.label + item.href}>
+                {showDivider && (
+                  <Box sx={{ px: 2, py: 0.5 }}>
+                    <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                      Tenant
+                    </Typography>
+                  </Box>
+                )}
+                <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
+                  <ListItemButton
+                    component={NextLink}
+                    href={item.href}
+                    onClick={onClose}
+                    selected={active}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 0.875,
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.light',
+                        color: 'primary.main',
+                        '& .MuiListItemIcon-root': { color: 'primary.main' },
+                        '&:hover': { bgcolor: 'primary.light' },
                       },
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
-                  />
-                </ListItemButton>
-              </ListItem>
+                  >
+                    <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
+                      <Icon sx={{ fontSize: 20 }} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.label}
+                      slotProps={{
+                        primary: {
+                          sx: { fontSize: '0.875rem', fontWeight: active ? 600 : 400 },
+                        },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              </Box>
             );
           })}
         </List>
@@ -202,7 +237,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
           variant="outlined"
           size="small"
           startIcon={<Logout sx={{ fontSize: 16 }} />}
-          onClick={() => { logout(); router.push('/login'); onClose?.(); }}
+          onClick={() => { onClose?.(); signOut(); }}
           sx={{ fontSize: '0.75rem' }}
         >
           Sign Out

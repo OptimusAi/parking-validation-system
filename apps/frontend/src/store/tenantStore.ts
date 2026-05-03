@@ -14,14 +14,14 @@ interface TenantState {
   setContext: (ctx: {
     email: string;
     name: string;
-    clientId: string;
-    tenantId: string;
+    clientId: string | null;
+    tenantId: string | null;
     role: Role;
     branding?: TenantBranding;
   }) => void;
   clearContext: () => void;
   setBranding: (branding: TenantBranding) => void;
-  switchTenant: (tenantId: string, branding?: TenantBranding) => void;
+  switchTenant: (tenantId: string, clientId?: string | null, branding?: TenantBranding) => void;
   // Computed helpers
   isAdmin: () => boolean;
   isClientAdmin: () => boolean;
@@ -68,8 +68,8 @@ export const useTenantStore = create<TenantState>()(
 
       setBranding: (branding) => set({ branding }),
 
-      switchTenant: (tenantId, branding) =>
-        set({ tenantId, branding: branding ?? DEFAULT_BRANDING }),
+      switchTenant: (tenantId, clientId, branding) =>
+        set((s) => ({ tenantId, clientId: clientId ?? s.clientId, branding: branding ?? DEFAULT_BRANDING })),
 
       isAdmin: () => get().role === 'ADMIN',
       isClientAdmin: () => get().role === 'CLIENT_ADMIN',

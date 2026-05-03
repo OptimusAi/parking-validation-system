@@ -126,7 +126,7 @@ export default function DashboardPage() {
               icon={Speed}
               color={quotaColor}
               bg={`${quotaColor}18`}
-              subtitle={`${quota?.daily.used ?? 0} of ${quota?.daily.limit ?? 0} daily`}
+              subtitle={`${quota?.daily?.used ?? 0} of ${quota?.daily?.limit ?? 0} daily`}
             />
           )}
         </Grid>

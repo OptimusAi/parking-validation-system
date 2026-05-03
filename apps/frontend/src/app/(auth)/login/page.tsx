@@ -1,57 +1,57 @@
 'use client';
 
-/**
- * Login Page — mirrors TMS loginPage.jsx + oauth.jsx exactly.
- *
- * Flow:
- *  1. On mount: check URL hash for #access_token=...  (OAuth implicit-flow callback)
- *     → found  : POST /api/auth/login with Authorization: Bearer <token> → redirect to dashboard
- *     → not found: fetch loginUrl from GET /api/auth/login-url → render "Welcome" button
- *  2. "Welcome" button: <a href={loginUrl}> → OAuth server login page
- *  3. OAuth server redirects back to this page with #access_token=... → step 1
- */
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, CircularProgress, Alert,
+  TextField, Divider,
 } from '@mui/material';
 import { LocalParking } from '@mui/icons-material';
 import { useAuthStore, resolveRedirectPath, LoginResult } from '@/store/authStore';
 
-/** Build OAuth2 implicit-flow authorize URL from env vars (same as backend /api/auth/login-url). */
-function buildLoginUrl(): string {
-  const oauthHost = process.env.NEXT_PUBLIC_OAUTH_HOST ?? 'http://localhost:9090';
-  const clientId  = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'cpa-tms-client';
-  const redirectUri = typeof window !== 'undefined'
-    ? `${window.location.origin}/login`
-    : 'http://localhost:3000/login';
+/** Build OAuth2 implicit-flow authorize URL. Always computed fresh so the
+ *  force-reauth sessionStorage flag is never stale. */
+function buildOAuthUrl(): string {
+  const oauthHost  = process.env.NEXT_PUBLIC_OAUTH_HOST ?? 'http://localhost:9090';
+  const clientId   = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'cpa-tms-client';
+  const redirectUri = `${window.location.origin}/login`;
+  const forceReauth = sessionStorage.getItem('tms-force-reauth') === '1';
+  if (forceReauth) sessionStorage.removeItem('tms-force-reauth');
   return (
     `${oauthHost}/oauth/authorize` +
     `?response_type=token` +
     `&client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=read+write`
+    `&scope=read+write` +
+    (forceReauth ? '&prompt=login' : '')
   );
 }
 
 export default function LoginPage() {
-  const router               = useRouter();
-  const loginWithOAuthToken  = useAuthStore((s) => s.loginWithOAuthToken);
+  const router              = useRouter();
+  const login               = useAuthStore((s) => s.login);
+  const loginWithOAuthToken = useAuthStore((s) => s.loginWithOAuthToken);
+  const isLoggedIn          = useAuthStore((s) => s.isLoggedIn);
 
-  const [loginUrl]             = useState<string>(() => buildLoginUrl());
-  const [processing,   setProcessing]  = useState(false);
-  const [error,        setError]       = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
+  const [username,   setUsername]   = useState('');
+  const [password,   setPassword]   = useState('');
 
   const redirect = (result: LoginResult) => router.replace(resolveRedirectPath(result));
 
+  // Redirect already-authenticated users away from the login page
   useEffect(() => {
-    // ── Step 1: check if OAuth server redirected back with a token in the hash ──
+    if (isLoggedIn && !window.location.hash.includes('access_token')) {
+      router.replace('/admin');
+    }
+  }, [isLoggedIn, router]);
+
+  // Handle OAuth implicit-flow callback (token in URL hash)
+  useEffect(() => {
     const hash  = window.location.hash.substring(1);
     const match = hash.match(/access_token=([^&]+)/);
-
     if (match) {
-      // Clean hash so pressing Back doesn't replay
       window.history.replaceState(null, '', window.location.pathname);
       setProcessing(true);
       loginWithOAuthToken(match[1])
@@ -60,13 +60,25 @@ export default function LoginPage() {
           setError(err.message ?? 'Authentication failed. Please try again.');
           setProcessing(false);
         });
-      return;
     }
-
-    // ── Step 2: no token — show the Welcome button (loginUrl already built from env vars)
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Processing: token is being exchanged ─────────────────────────────────
+  // Username / password submit
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+    setProcessing(true);
+    setError(null);
+    try {
+      const result = await login(username.trim(), password);
+      redirect(result);
+    } catch (err) {
+      setError((err as Error).message ?? 'Login failed');
+      setProcessing(false);
+    }
+  };
+
+  // ── Processing spinner ────────────────────────────────────────────────────
   if (processing) {
     return (
       <Box sx={pageStyle}>
@@ -84,63 +96,78 @@ export default function LoginPage() {
     <Box sx={pageStyle}>
       <Box sx={jumbotronStyle}>
 
-        {/* ── App title (TMS: <h2>{i18n.t('app_title')}</h2>) ── */}
         <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 2, textAlign: 'center' }}>
           Parking Validation System
         </Typography>
 
-        {/* ── Logo ── */}
         <Box sx={{ mb: 3 }}>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 80,
-              height: 80,
-              borderRadius: '20px',
-              bgcolor: '#1B4F8A',
-              boxShadow: '0 4px 20px rgba(27,79,138,0.25)',
-            }}
-          >
+          <Box sx={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 80, height: 80, borderRadius: '20px', bgcolor: '#1B4F8A',
+            boxShadow: '0 4px 20px rgba(27,79,138,0.25)',
+          }}>
             <LocalParking sx={{ fontSize: 48, color: 'white' }} />
           </Box>
         </Box>
 
-        {/* ── Welcome message (TMS: welcome_message + continue text) ── */}
-        <Typography variant="body1" sx={{ color: '#555', mb: 1, textAlign: 'center', maxWidth: 560 }}>
-          Welcome to the Parking Validation Management System.
-          Please click the &ldquo;Welcome&rdquo; button to sign in to your account.
-        </Typography>
-
         {error && (
-          <Alert severity="error" sx={{ my: 2, maxWidth: 480, width: '100%' }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ mb: 2, maxWidth: 400, width: '100%' }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        {/* ── Welcome button ── */}
-        <Box sx={{ mt: 3 }}>
+        {/* ── Username / password form ── */}
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
+          <TextField
+            label="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            fullWidth
+            size="small"
+            autoComplete="username"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            size="small"
+            autoComplete="current-password"
+            sx={{ mb: 2 }}
+          />
           <Button
-            component="a"
-            href={loginUrl}
+            type="submit"
             variant="contained"
-            size="large"
+            fullWidth
+            disabled={!username.trim() || !password}
             sx={{
-              bgcolor: '#2E7D6B',
-              '&:hover': { bgcolor: '#245f54' },
-              px: 6,
-              py: 1.5,
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-              borderRadius: '6px',
-              boxShadow: '0 3px 12px rgba(46,125,107,0.35)',
+              bgcolor: '#1B4F8A', '&:hover': { bgcolor: '#163f6e' },
+              py: 1.2, fontWeight: 600, borderRadius: '6px',
             }}
           >
-            Welcome
+            Sign In
           </Button>
         </Box>
+
+        {/* ── OAuth divider + button ── */}
+        <Divider sx={{ my: 3, width: '100%', maxWidth: 400 }}>
+          <Typography variant="caption" color="text.secondary">OR</Typography>
+        </Divider>
+
+        <Button
+          variant="outlined"
+          size="large"
+          onClick={() => { window.location.href = buildOAuthUrl(); }}
+          sx={{
+            borderColor: '#2E7D6B', color: '#2E7D6B',
+            '&:hover': { borderColor: '#245f54', bgcolor: 'rgba(46,125,107,0.06)' },
+            px: 6, py: 1.2, fontWeight: 600, borderRadius: '6px',
+          }}
+        >
+          Sign in with SSO
+        </Button>
 
       </Box>
     </Box>

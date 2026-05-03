@@ -74,6 +74,15 @@ public class AuthController {
         return ResponseEntity.ok(java.util.Map.of("loginUrl", loginUrl));
     }
 
+    // ── GET /api/auth/logout-url ─────────────────────────────────────────────
+    /** Returns the OAuth server logout URL. Same as TMS /client/config/public/logout. */
+    @GetMapping("/logout-url")
+    public ResponseEntity<java.util.Map<String, String>> getLogoutUrl() {
+        // Old TMS uses /exit?redirect_uri= on the OAuth server
+        String logoutUrl = oauthHost + "/exit?redirect_uri=";
+        return ResponseEntity.ok(java.util.Map.of("logoutUrl", logoutUrl));
+    }
+
     // ── POST /api/auth/login ─────────────────────────────────────────────────
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(

@@ -68,6 +68,7 @@ public class SecurityConfig {
 
                 // Public auth endpoints — no token required
                 .requestMatchers(HttpMethod.GET, "/api/auth/login-url").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/logout-url").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                 // Token exchange: caller has an OAuth RS256 token and wants a TMS-internal JWT
