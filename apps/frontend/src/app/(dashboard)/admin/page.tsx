@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Typography, Card, CardContent, CardActionArea } from '@mui/material';
-import { Business, People, Assessment, Settings } from '@mui/icons-material';
+import { Business, People, Assessment, Settings, LocationOn } from '@mui/icons-material';
 import { useTenantStore } from '@/store/tenantStore';
 
 const ADMIN_SECTIONS = [
@@ -21,7 +21,15 @@ const ADMIN_SECTIONS = [
     icon: People,
     color: '#2E7D32',
     bg: '#E8F5E9',
-    href: '#', // future: /admin/users
+    href: '/admin/users',
+  },
+  {
+    label: 'Zones',
+    description: 'Assign and manage parking zones for any tenant.',
+    icon: LocationOn,
+    color: '#00695C',
+    bg: '#E0F2F1',
+    href: '/admin/zones',
   },
   {
     label: 'Reports',

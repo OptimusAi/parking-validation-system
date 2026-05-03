@@ -45,6 +45,8 @@ function buildNavItems(clientId: string | null, tenantId: string | null): NavIte
     { label: 'Admin', href: '/admin', icon: AdminPanelSettings, roles: ['ADMIN'] },
     { label: 'Clients', href: '/admin/clients', icon: Business, roles: ['ADMIN'] },
     { label: 'Tenants', href: '/admin/tenants', icon: Business, roles: ['ADMIN'] },
+    { label: 'Users', href: '/admin/users', icon: People, roles: ['ADMIN'] },
+    { label: 'Zones', href: '/admin/zones', icon: LocationOn, roles: ['ADMIN'] },
     // CLIENT_ADMIN tenant list
     { label: 'Tenants', href: clientId ? `/${clientId}/tenants` : '#', icon: Business, roles: ['CLIENT_ADMIN'] },
     // Tenant-scoped (shown when a tenant is selected)

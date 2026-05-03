@@ -93,7 +93,7 @@ export default function TenantsPage() {
       field: 'name', headerName: 'Name', flex: 1, minWidth: 180,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ bgcolor: row.branding.primaryColor, width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}>
+          <Avatar sx={{ bgcolor: row.branding?.primaryColor, width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}>
             {row.name.slice(0, 2).toUpperCase()}
           </Avatar>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.name}</Typography>

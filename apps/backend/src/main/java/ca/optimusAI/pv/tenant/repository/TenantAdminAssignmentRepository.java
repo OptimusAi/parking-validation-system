@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +15,8 @@ import java.util.UUID;
 public interface TenantAdminAssignmentRepository extends JpaRepository<TenantAdminAssignment, UUID> {
 
     Optional<TenantAdminAssignment> findByUserId(UUID userId);
+
+    List<TenantAdminAssignment> findAllByUserIdIn(Collection<UUID> userIds);
 
     @Query("SELECT t.tenantId FROM TenantAdminAssignment t WHERE t.userId = :userId")
     Optional<UUID> findTenantIdByUserId(@Param("userId") UUID userId);

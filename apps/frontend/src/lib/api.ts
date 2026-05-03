@@ -180,9 +180,13 @@ export async function getAuditLogs(
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function getUsers(params?: PageParams): Promise<PageResponse<User>> {
-  const { data } = await apiClient.get(`/api/v1/users`, {
-    params: { tenantId: tenantId(), ...pageParams(params) },
-  });
+  const { role: callerRole } = useTenantStore.getState();
+  const extraParams: Record<string, unknown> = { ...pageParams(params) };
+  // ADMIN gets all users (no tenantId filter); others scope by tenant
+  if (callerRole !== 'ADMIN') {
+    extraParams.tenantId = tenantId();
+  }
+  const { data } = await apiClient.get(`/api/v1/users`, { params: extraParams });
   return data;
 }
 
@@ -192,8 +196,19 @@ export async function updateUserRole(id: string, role: User['role']): Promise<Us
 }
 
 export async function updateUserActive(id: string, isActive: boolean): Promise<User> {
-  const { data } = await apiClient.put(`/api/v1/users/${id}`, { isActive });
+  const endpoint = isActive ? `/api/v1/users/${id}/activate` : `/api/v1/users/${id}/deactivate`;
+  const { data } = await apiClient.put(endpoint);
   return data;
+}
+
+export async function assignUserTenant(
+  id: string,
+  tenantId: string | null,
+  clientId: string | null,
+): Promise<User> {
+  const { data } = await apiClient.put(`/api/v1/users/${id}/tenant`, { tenantId, clientId });
+  // Backend wraps in { user, message } — unwrap
+  return data.user ?? data;
 }
 
 // ─── Quota ────────────────────────────────────────────────────────────────────
@@ -230,6 +245,26 @@ export async function updateZone(id: string, data: Partial<Zone>): Promise<Zone>
 
 export async function deleteZone(id: string): Promise<void> {
   await apiClient.delete(`/api/v1/zones/${id}`);
+}
+
+/** Admin-only: list all zones for a specific tenant without needing TenantContext. */
+export async function getZonesAdmin(tid: string): Promise<Zone[]> {
+  const { data } = await apiClient.get(`/api/v1/zones`, { params: { tenantId: tid } });
+  return Array.isArray(data) ? data : data.content ?? [];
+}
+
+/** Admin-only: create a zone for any tenant/client pair. */
+export async function createZoneAdmin(
+  tid: string,
+  cid: string,
+  payload: { zoneNumber: string; name: string; defaultDurationMinutes: number; maxDurationMinutes: number },
+): Promise<Zone> {
+  const { data } = await apiClient.post(`/api/v1/zones`, {
+    ...payload,
+    tenantId: tid,
+    clientId: cid,
+  });
+  return data;
 }
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
@@ -319,11 +354,14 @@ export const api = {
   getUsers,
   updateUserRole,
   updateUserActive,
+  assignUserTenant,
   getQuotaUsage,
   getZones,
   createZone,
   updateZone,
   deleteZone,
+  getZonesAdmin,
+  createZoneAdmin,
   getTenants,
   getTenantsForClient,
   createTenant,

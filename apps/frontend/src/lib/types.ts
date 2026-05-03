@@ -119,11 +119,16 @@ export interface AuditLog {
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
   role: Role;
-  tenantId?: string;
+  tenantId?: string | null;
+  clientId?: string | null;
   tenantName?: string;
   isActive: boolean;
+  createdAt?: string;
 }
 
 export interface QuotaUsage {

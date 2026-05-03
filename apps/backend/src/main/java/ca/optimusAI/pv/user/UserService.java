@@ -17,13 +17,17 @@ import ca.optimusAI.pv.user.repository.AppUserRepository;
 import ca.optimusAI.pv.user.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -63,6 +67,63 @@ public class UserService {
         }
 
         throw new UnauthorizedTenantAccessException("Insufficient role to list users");
+    }
+
+    /**
+     * Enriched list — same scoping as list() but returns UserResponse with role + tenant info.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<UserResponse> listEnriched(int page, int size) {
+        PageRequest pr = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        Page<AppUser> userPage;
+        if (TenantContext.hasRole("ADMIN")) {
+            userPage = userRepository.findAll(pr);
+        } else if (TenantContext.hasRole("CLIENT_ADMIN")) {
+            List<UUID> assignedTenants = TenantContext.assignedTenants();
+            if (assignedTenants.isEmpty()) {
+                throw new UnauthorizedTenantAccessException("No tenants assigned to this CLIENT_ADMIN");
+            }
+            List<UUID> userIds = clientAdminAssignmentRepository.findUserIdsByTenantIdIn(assignedTenants);
+            userPage = userRepository.findByIdIn(userIds, pr);
+        } else {
+            throw new UnauthorizedTenantAccessException("Insufficient role to list users");
+        }
+
+        List<UUID> userIds = userPage.stream().map(AppUser::getId).toList();
+
+        // Bulk-fetch roles
+        Map<UUID, UserRole> roleMap = userRoleRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(UserRole::getUserId, Function.identity()));
+
+        // Bulk-fetch client-admin assignments (for clientId + tenantId)
+        Map<UUID, ClientAdminAssignment> clientAssignMap =
+                clientAdminAssignmentRepository.findAllByUserIdIn(userIds).stream()
+                        .collect(Collectors.toMap(ClientAdminAssignment::getUserId, Function.identity(), (a, b) -> a));
+
+        // Bulk-fetch tenant-admin assignments
+        Map<UUID, TenantAdminAssignment> tenantAssignMap =
+                tenantAdminAssignmentRepository.findAllByUserIdIn(userIds).stream()
+                        .collect(Collectors.toMap(TenantAdminAssignment::getUserId, Function.identity(), (a, b) -> a));
+
+        List<UserResponse> content = userPage.stream().map(u -> {
+            UserRole ur = roleMap.get(u.getId());
+            String role = ur != null ? ur.getRole() : "USER";
+            UUID tenantId = null;
+            UUID clientId = null;
+            if ("CLIENT_ADMIN".equals(role)) {
+                ClientAdminAssignment ca = clientAssignMap.get(u.getId());
+                if (ca != null) { tenantId = ca.getTenantId(); clientId = ca.getClientId(); }
+            } else if ("TENANT_ADMIN".equals(role)) {
+                TenantAdminAssignment ta = tenantAssignMap.get(u.getId());
+                if (ta != null) tenantId = ta.getTenantId();
+            }
+            return new UserResponse(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(),
+                    u.getFullName(), u.isActive(), role, tenantId, clientId, u.getCreatedAt());
+        }).toList();
+
+        return new PageResponse<>(content, userPage.getNumber(), userPage.getSize(),
+                userPage.getTotalElements(), userPage.getTotalPages(), userPage.isLast());
     }
 
     /** Return the currently authenticated user from TenantContext. */
@@ -162,6 +223,18 @@ public class UserService {
         AppUser saved = userRepository.save(user);
         userRoleService.evictCache(user.getAuthProviderUserId());
         log.info("Deactivated userId={}", id);
+        return saved;
+    }
+
+    /** Activate a user. */
+    @Transactional
+    public AppUser activate(UUID id) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+        user.setActive(true);
+        AppUser saved = userRepository.save(user);
+        userRoleService.evictCache(user.getAuthProviderUserId());
+        log.info("Activated userId={}", id);
         return saved;
     }
 

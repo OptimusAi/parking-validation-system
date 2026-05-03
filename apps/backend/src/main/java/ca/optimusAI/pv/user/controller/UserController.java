@@ -3,6 +3,7 @@ package ca.optimusAI.pv.user.controller;
 import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
 import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
+import ca.optimusAI.pv.user.UserResponse;
 import ca.optimusAI.pv.user.UserService;
 import ca.optimusAI.pv.user.entity.AppUser;
 import jakarta.validation.Valid;
@@ -27,10 +28,10 @@ public class UserController {
     /** List users — ADMIN: all, CLIENT_ADMIN: assigned tenants only. */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN')")
-    public ResponseEntity<PageResponse<AppUser>> list(
+    public ResponseEntity<PageResponse<UserResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(userService.list(page, size));
+        return ResponseEntity.ok(userService.listEnriched(page, size));
     }
 
     /** Return the currently authenticated user. */
@@ -75,6 +76,13 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN')")
     public ResponseEntity<AppUser> deactivate(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.deactivate(id));
+    }
+
+    /** Activate a user. */
+    @PutMapping("/{id}/activate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN')")
+    public ResponseEntity<AppUser> activate(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.activate(id));
     }
 
     /** Get tenants assigned to a CLIENT_ADMIN user. */
