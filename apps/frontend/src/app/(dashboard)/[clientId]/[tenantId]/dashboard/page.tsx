@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -14,7 +14,7 @@ import {
   LineChart, Line, ResponsiveContainer, Area, AreaChart, ReferenceLine,
 } from 'recharts';
 import { mockApi } from '@/lib/api';
-import { getChartDataLast7Days, getChartDataLast30Days } from '@/lib/mockData';
+
 import { useTenantStore } from '@/store/tenantStore';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -63,8 +63,8 @@ export default function DashboardPage() {
     queryFn: () => mockApi.getQuotaUsage(tenantId),
   });
 
-  const barData = useMemo(() => getChartDataLast7Days(), []);
-  const lineData = useMemo(() => getChartDataLast30Days(), []);
+  const barData: { date: string; count: number }[] = [];
+  const lineData: { date: string; count: number }[] = [];
 
   const quotaPct = quota ? Math.round((quota.daily.used / quota.daily.limit) * 100) : 0;
   const quotaColor = quotaPct >= 90 ? '#D32F2F' : quotaPct >= 70 ? '#ED6C02' : '#2E7D32';

@@ -13,7 +13,6 @@ import { format } from 'date-fns';
 import { mockApi } from '@/lib/api';
 import type { ReportJob } from '@/lib/types';
 import { PageHeader } from '@/components/common/PageHeader';
-import { MOCK_SESSIONS } from '@/lib/mockData';
 
 const STATUS_CHIP: Record<string, { color: 'warning' | 'info' | 'success' | 'error'; label: string }> = {
   QUEUED: { color: 'warning', label: 'Queued' },
@@ -22,22 +21,11 @@ const STATUS_CHIP: Record<string, { color: 'warning' | 'info' | 'success' | 'err
   FAILED: { color: 'error', label: 'Failed' },
 };
 
-function downloadCsv() {
-  const headers = ['ID', 'License Plate', 'Zone', 'Start', 'End', 'Duration', 'Status'];
-  const rows = MOCK_SESSIONS.map((s) => [
-    s.id, s.licensePlate, s.zoneName,
-    format(new Date(s.startTime), 'yyyy-MM-dd HH:mm'),
-    format(new Date(s.endTime), 'yyyy-MM-dd HH:mm'),
-    `${s.durationMinutes}m`, s.status,
-  ]);
-  const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
+function downloadCsv(fileUrl: string) {
   const a = document.createElement('a');
-  a.href = url;
+  a.href = fileUrl;
   a.download = `report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
   a.click();
-  URL.revokeObjectURL(url);
 }
 
 export default function ReportsPage() {
@@ -102,7 +90,7 @@ export default function ReportsPage() {
               size="small"
               variant="contained"
               startIcon={<Download sx={{ fontSize: 16 }} />}
-              onClick={downloadCsv}
+              onClick={() => row.fileUrl && downloadCsv(row.fileUrl)}
             >
               CSV
             </Button>
