@@ -1,42 +1,34 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Typography, Button, CircularProgress, Alert,
-  TextField, Divider,
 } from '@mui/material';
 import { LocalParking } from '@mui/icons-material';
 import { useAuthStore, resolveRedirectPath, LoginResult } from '@/store/authStore';
 
-/** Build OAuth2 implicit-flow authorize URL. Always computed fresh so the
- *  force-reauth sessionStorage flag is never stale. */
+/** Build OAuth2 implicit-flow authorize URL. Always computed fresh at click time. */
 function buildOAuthUrl(): string {
   const oauthHost  = process.env.NEXT_PUBLIC_OAUTH_HOST ?? 'http://localhost:9090';
   const clientId   = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'cpa-tms-client';
   const redirectUri = `${window.location.origin}/login`;
-  const forceReauth = sessionStorage.getItem('tms-force-reauth') === '1';
-  if (forceReauth) sessionStorage.removeItem('tms-force-reauth');
   return (
     `${oauthHost}/oauth/authorize` +
     `?response_type=token` +
     `&client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=read+write` +
-    (forceReauth ? '&prompt=login' : '')
+    `&scope=read+write`
   );
 }
 
 export default function LoginPage() {
   const router              = useRouter();
-  const login               = useAuthStore((s) => s.login);
   const loginWithOAuthToken = useAuthStore((s) => s.loginWithOAuthToken);
   const isLoggedIn          = useAuthStore((s) => s.isLoggedIn);
 
   const [processing, setProcessing] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
-  const [username,   setUsername]   = useState('');
-  const [password,   setPassword]   = useState('');
 
   const redirect = (result: LoginResult) => router.replace(resolveRedirectPath(result));
 
@@ -63,22 +55,6 @@ export default function LoginPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Username / password submit
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password) return;
-    setProcessing(true);
-    setError(null);
-    try {
-      const result = await login(username.trim(), password);
-      redirect(result);
-    } catch (err) {
-      setError((err as Error).message ?? 'Login failed');
-      setProcessing(false);
-    }
-  };
-
-  // ── Processing spinner ────────────────────────────────────────────────────
   if (processing) {
     return (
       <Box sx={pageStyle}>
@@ -110,71 +86,41 @@ export default function LoginPage() {
           </Box>
         </Box>
 
+        <Typography variant="body1" sx={{ color: '#555', mb: 1, textAlign: 'center', maxWidth: 560 }}>
+          Welcome to the Parking Validation Management System.
+          Please click the &ldquo;Welcome&rdquo; button to sign in to your account.
+        </Typography>
+
         {error && (
-          <Alert severity="error" sx={{ mb: 2, maxWidth: 400, width: '100%' }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ my: 2, maxWidth: 480, width: '100%' }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        {/* ── Username / password form ── */}
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
-          <TextField
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            fullWidth
-            size="small"
-            autoComplete="username"
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            size="small"
-            autoComplete="current-password"
-            sx={{ mb: 2 }}
-          />
+        <Box sx={{ mt: 3 }}>
           <Button
-            type="submit"
             variant="contained"
-            fullWidth
-            disabled={!username.trim() || !password}
+            size="large"
+            onClick={() => { window.location.href = buildOAuthUrl(); }}
             sx={{
-              bgcolor: '#1B4F8A', '&:hover': { bgcolor: '#163f6e' },
-              py: 1.2, fontWeight: 600, borderRadius: '6px',
+              bgcolor: '#2E7D6B',
+              '&:hover': { bgcolor: '#245f54' },
+              px: 6,
+              py: 1.5,
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              boxShadow: '0 3px 12px rgba(46,125,107,0.35)',
             }}
           >
-            Sign In
+            Welcome
           </Button>
         </Box>
-
-        {/* ── OAuth divider + button ── */}
-        <Divider sx={{ my: 3, width: '100%', maxWidth: 400 }}>
-          <Typography variant="caption" color="text.secondary">OR</Typography>
-        </Divider>
-
-        <Button
-          variant="outlined"
-          size="large"
-          onClick={() => { window.location.href = buildOAuthUrl(); }}
-          sx={{
-            borderColor: '#2E7D6B', color: '#2E7D6B',
-            '&:hover': { borderColor: '#245f54', bgcolor: 'rgba(46,125,107,0.06)' },
-            px: 6, py: 1.2, fontWeight: 600, borderRadius: '6px',
-          }}
-        >
-          Sign in with SSO
-        </Button>
 
       </Box>
     </Box>
   );
 }
-
-// ── Styles (mirrors TMS .container-fluid > .jumbotron) ───────────────────────
 
 const pageStyle = {
   minHeight: '100vh',
