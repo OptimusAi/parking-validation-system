@@ -15,13 +15,13 @@ import type { User, Role, Client, Tenant } from '@/lib/types';
 import { PageHeader } from '@/components/common/PageHeader';
 import { useTenantStore } from '@/store/tenantStore';
 
-const ALL_ROLES: Role[] = ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'];
+const ALL_ROLES: Role[] = ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN'];
 
 const ROLE_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   ADMIN: 'error',
   CLIENT_ADMIN: 'warning',
   TENANT_ADMIN: 'info',
-  SUBTENANT_USER: 'default',
+  SUB_TENANT_ADMIN: 'default',
 };
 
 export default function AdminUsersPage() {
@@ -50,6 +50,12 @@ export default function AdminUsersPage() {
   const { data: clientsData } = useQuery({
     queryKey: ['clients'],
     queryFn: () => listClients(),
+    enabled: role === 'ADMIN',
+  });
+
+  const { data: allTenantsData } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: () => mockApi.getTenants(),
     enabled: role === 'ADMIN',
   });
 
@@ -113,6 +119,10 @@ export default function AdminUsersPage() {
   const clients: Client[] = clientsData?.content ?? [];
   const tenants: Tenant[] = tenantsForClient ?? [];
   const users = data?.content ?? [];
+  const allTenants: Tenant[] = Array.isArray(allTenantsData)
+    ? allTenantsData
+    : (allTenantsData as { content?: Tenant[] })?.content ?? [];
+  const tenantMap = new Map<string, string>(allTenants.map((t) => [t.id, t.name]));
 
   const columns: GridColDef<User>[] = [
     { field: 'fullName', headerName: 'Name', flex: 1, minWidth: 150,
@@ -131,7 +141,7 @@ export default function AdminUsersPage() {
     },
     {
       field: 'tenantId', headerName: 'Tenant', width: 200,
-      valueGetter: (_, row) => row.tenantName ?? (row.tenantId ? row.tenantId.slice(0, 8) + '…' : '—'),
+      valueGetter: (_, row) => (row.tenantId ? tenantMap.get(row.tenantId) : null) ?? '—',
     },
     {
       field: 'isActive', headerName: 'Active', width: 80,

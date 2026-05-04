@@ -63,6 +63,7 @@ tms:
 aws:
   region: ${AWS_REGION:us-east-1}
   s3:
+    enabled: ${AWS_S3_ENABLED:false}
     bucket: ${AWS_S3_BUCKET:parking-validation-system-112707717713-us-east-1-an}
   ses:
     from-email: ${AWS_SES_FROM_EMAIL:noreply@optimus-ai.com}

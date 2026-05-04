@@ -21,6 +21,9 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
     /** Used by ADMIN to list zones under a specific tenant. */
     Page<Zone> findAllByTenantIdAndIsDeletedFalse(UUID tenantId, Pageable pageable);
 
+    /** Count zones for a tenant — used for tenant list enrichment. */
+    long countByTenantIdAndIsDeletedFalse(UUID tenantId);
+
     /**
      * Native query — checks validation_sessions table without introducing a
      * cross-package entity dependency at this phase.

@@ -7,7 +7,10 @@ import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.exception.InvalidTokenException;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
+import ca.optimusAI.pv.tenant.entity.Zone;
 import ca.optimusAI.pv.tenant.repository.ZoneRepository;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,26 +45,36 @@ public class QrLinkService {
     @Transactional
     public ValidationLink createLink(CreateLinkRequest req) {
         UUID tenantId  = TenantContext.tenantId();
+        // CLIENT_ADMIN has no tenantId in JWT — use the one supplied in the request body
+        if (tenantId == null && req.tenantId() != null) {
+            tenantId = req.tenantId();
+        }
         UUID clientId  = TenantContext.clientId();
+        // CLIENT_ADMIN may also lack clientId in TenantContext — use request body fallback
+        if (clientId == null && req.clientId() != null) {
+            clientId = req.clientId();
+        }
         UUID createdBy = resolveCreatedBy();
 
         if (tenantId == null) {
             throw new UnauthorizedTenantAccessException("No tenant assigned to current user");
         }
 
+        final UUID resolvedTenantId = tenantId;
+
         // Verify the zone belongs to this tenant
         zoneRepository.findById(req.zoneId())
-                .filter(z -> !z.isDeleted() && z.isActive() && z.getTenantId().equals(tenantId))
+                .filter(z -> !z.isDeleted() && z.isActive() && z.getTenantId().equals(resolvedTenantId))
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + req.zoneId()));
 
         int duration = req.defaultDurationMinutes() != null ? req.defaultDurationMinutes() : 60;
         Instant expiresAt = req.expiresAt();
 
         // Generate HMAC token
-        String token = generateToken(tenantId, req.zoneId(), duration, expiresAt);
+        String token = generateToken(resolvedTenantId, req.zoneId(), duration, expiresAt);
 
         ValidationLink link = ValidationLink.builder()
-                .tenantId(tenantId)
+                .tenantId(resolvedTenantId)
                 .clientId(clientId)
                 .zoneId(req.zoneId())
                 .linkType(req.linkType() != null ? req.linkType() : "QR")
@@ -82,7 +95,18 @@ public class QrLinkService {
     @Transactional(readOnly = true)
     public PageResponse<ValidationLink> list(int page, int size) {
         PageRequest pr = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return PageResponse.of(linkRepository.findAll(pr));
+        var linkPage = linkRepository.findAll(pr);
+
+        // Enrich with zone names
+        var zoneIds = linkPage.getContent().stream()
+                .map(ValidationLink::getZoneId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, String> zoneNames = zoneRepository.findAllById(zoneIds).stream()
+                .collect(Collectors.toMap(Zone::getId, Zone::getName));
+        linkPage.getContent().forEach(l -> l.setZoneName(zoneNames.get(l.getZoneId())));
+
+        return PageResponse.of(linkPage);
     }
 
     // ── Get by id ─────────────────────────────────────────────────────────────
@@ -212,6 +236,8 @@ public class QrLinkService {
 
     public record CreateLinkRequest(
             UUID zoneId,
+            UUID tenantId,
+            UUID clientId,
             String linkType,
             String label,
             Integer defaultDurationMinutes,

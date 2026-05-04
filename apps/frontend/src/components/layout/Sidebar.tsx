@@ -29,9 +29,9 @@ interface NavItem {
 
 function buildNavItems(clientId: string | null, tenantId: string | null): NavItem[] {
   const tenantItems: NavItem[] = tenantId ? [
-    { label: 'Dashboard', href: clientId ? `/${clientId}/${tenantId}/dashboard` : '#', icon: Dashboard, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
-    { label: 'Validations', href: clientId ? `/${clientId}/${tenantId}/validations` : '#', icon: DirectionsCar, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
-    { label: 'Links', href: clientId ? `/${clientId}/${tenantId}/links` : '#', icon: QrCode2, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'] },
+    { label: 'Dashboard', href: clientId ? `/${clientId}/${tenantId}/dashboard` : '#', icon: Dashboard, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN'] },
+    { label: 'Validations', href: clientId ? `/${clientId}/${tenantId}/validations` : '#', icon: DirectionsCar, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN'] },
+    { label: 'Links', href: clientId ? `/${clientId}/${tenantId}/links` : '#', icon: QrCode2, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN'] },
     { label: 'Zones', href: clientId ? `/${clientId}/${tenantId}/zones` : '#', icon: LocationOn, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
     { label: 'Sub-Tenants', href: clientId ? `/${clientId}/${tenantId}/sub-tenants` : '#', icon: Apartment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },
     { label: 'Reports', href: clientId ? `/${clientId}/${tenantId}/reports` : '#', icon: Assessment, roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'] },

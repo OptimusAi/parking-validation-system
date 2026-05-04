@@ -36,15 +36,25 @@ public class AwsS3Service {
     @Value("${aws.region:ca-central-1}")
     private String region;
 
+    @Value("${aws.s3.enabled:false}")
+    private boolean s3Enabled;
+
     /**
      * Uploads a logo file to S3 under tenants/{tenantId}/logo.{ext}
      *
-     * @return the public HTTPS URL of the uploaded logo
+     * @return the public HTTPS URL of the uploaded logo, or a base64 data URL when S3 is disabled
      */
     public String uploadTenantLogo(UUID tenantId, MultipartFile file) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String ext = resolveExtension(originalFilename);
         validateLogoFile(file, ext);
+
+        if (!s3Enabled) {
+            log.warn("S3 disabled — storing logo as base64 data URL for tenantId={}", tenantId);
+            String mime = file.getContentType() != null ? file.getContentType() : "image/png";
+            String b64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+            return "data:" + mime + ";base64," + b64;
+        }
 
         String key = "tenants/" + tenantId + "/logo." + ext;
 
@@ -67,6 +77,10 @@ public class AwsS3Service {
      * Used by report generation workers.
      */
     public String uploadBytes(String key, byte[] content, String contentType) {
+        if (!s3Enabled) {
+            log.warn("S3 is disabled (aws.s3.enabled=false). uploadBytes skipped for key={}", key);
+            return null;
+        }
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)

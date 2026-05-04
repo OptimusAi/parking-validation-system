@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { Add, CloudUpload, ArrowForward } from '@mui/icons-material';
-import { mockApi, listClients } from '@/lib/api';
+import { mockApi, listClients, updateBranding } from '@/lib/api';
 import type { Tenant } from '@/lib/types';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -21,6 +21,7 @@ export default function AdminTenantsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: '', primaryColor: '#1B4F8A', accentColor: '#2E86C1', clientId: '' });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<{ msg: string; sev: 'success' | 'error' } | null>(null);
 
@@ -36,12 +37,22 @@ export default function AdminTenantsPage() {
   const clientOptions = clientsPage?.content ?? [];
 
   const createMutation = useMutation({
-    mutationFn: () => mockApi.createTenant({ name: form.name, clientId: form.clientId }),
+    mutationFn: async () => {
+      const tenant = await mockApi.createTenant({ name: form.name, clientId: form.clientId });
+      // Save branding (logo + colors) in a follow-up call
+      const brandingData = new FormData();
+      brandingData.append('primaryColor', form.primaryColor);
+      brandingData.append('accentColor', form.accentColor);
+      if (logoFile) brandingData.append('logoFile', logoFile);
+      await updateBranding(tenant.id, brandingData);
+      return tenant;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tenants'] });
       setDialogOpen(false);
       setForm({ name: '', primaryColor: '#1B4F8A', accentColor: '#2E86C1', clientId: '' });
       setLogoPreview(null);
+      setLogoFile(null);
       setToast({ msg: 'Tenant created successfully', sev: 'success' });
     },
     onError: () => setToast({ msg: 'Failed to create tenant', sev: 'error' }),
@@ -52,6 +63,7 @@ export default function AdminTenantsPage() {
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file && ['image/png', 'image/svg+xml', 'image/jpeg'].includes(file.type) && file.size <= 2 * 1024 * 1024) {
+      setLogoFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
       reader.readAsDataURL(file);
@@ -67,6 +79,7 @@ export default function AdminTenantsPage() {
       setToast({ msg: 'Invalid file (PNG/SVG/JPG, max 2MB)', sev: 'error' });
       return;
     }
+    setLogoFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -79,7 +92,10 @@ export default function AdminTenantsPage() {
       field: 'name', headerName: 'Name', flex: 1, minWidth: 180,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ bgcolor: row.branding?.primaryColor ?? '#1B4F8A', width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}>
+          <Avatar
+            src={row.branding?.logoUrl || undefined}
+            sx={{ bgcolor: row.branding?.primaryColor ?? '#1B4F8A', width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}
+          >
             {row.name.slice(0, 2).toUpperCase()}
           </Avatar>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.name}</Typography>
@@ -96,8 +112,11 @@ export default function AdminTenantsPage() {
     { field: 'zones', headerName: 'Zones', width: 80 },
     { field: 'subTenants', headerName: 'Sub-Tenants', width: 120 },
     {
-      field: 'status', headerName: 'Status', width: 100,
-      renderCell: ({ value }) => <Chip label={value} size="small" color={value === 'ACTIVE' ? 'success' : 'default'} />,
+      field: 'isActive', headerName: 'Status', width: 100,
+      renderCell: ({ row }) => {
+        const active = row.status ? row.status === 'ACTIVE' : row.isActive !== false;
+        return <Chip label={active ? 'ACTIVE' : 'INACTIVE'} size="small" color={active ? 'success' : 'default'} />;
+      },
     },
     {
       field: 'actions', headerName: '', width: 120, sortable: false,

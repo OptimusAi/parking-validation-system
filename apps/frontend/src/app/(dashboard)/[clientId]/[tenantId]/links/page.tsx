@@ -41,7 +41,7 @@ export default function LinksPage() {
       return mockApi.createLink({
         ...form,
         zoneName: zone?.name ?? '',
-        expiresAt: form.expiresAt || undefined,
+        expiresAt: form.expiresAt ? `${form.expiresAt}T00:00:00Z` : undefined,
       });
     },
     onSuccess: () => {
@@ -77,14 +77,14 @@ export default function LinksPage() {
   const columns: GridColDef<ValidationLink>[] = [
     { field: 'label', headerName: 'Label', flex: 1, minWidth: 140, valueGetter: (_, row) => row.label ?? '—' },
     {
-      field: 'type', headerName: 'Type', width: 90,
+      field: 'linkType', headerName: 'Type', width: 90,
       renderCell: ({ value }) => (
         <Chip label={value} size="small" color={value === 'QR' ? 'primary' : 'secondary'} icon={<QrCode2 sx={{ fontSize: 14 }} />} />
       ),
     },
-    { field: 'zoneName', headerName: 'Zone', width: 130 },
-    { field: 'durationMinutes', headerName: 'Duration', width: 100, valueFormatter: (v: number) => `${v}m` },
-    { field: 'scans', headerName: 'Scans', width: 80 },
+    { field: 'zoneName', headerName: 'Zone', width: 130, valueGetter: (_, row) => row.zoneName ?? '—' },
+    { field: 'defaultDurationMinutes', headerName: 'Duration', width: 100, valueFormatter: (v: number) => `${v}m` },
+    { field: 'scanCount', headerName: 'Scans', width: 80 },
     { field: 'expiresAt', headerName: 'Expires', width: 140, valueFormatter: (v?: string) => v ? format(new Date(v), 'MMM d, yyyy') : 'Never' },
     {
       field: 'isActive', headerName: 'Active', width: 80,
@@ -99,7 +99,7 @@ export default function LinksPage() {
           <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => setQrLink(row)}>
             <QrCode2 sx={{ fontSize: 16 }} />
           </Button>
-          <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => handleCopy(row.url)}>
+          <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => handleCopy(`${window.location.origin}/validate/${row.token}`)}>
             <ContentCopy sx={{ fontSize: 16 }} />
           </Button>
           <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => handlePdf(row.id)}>

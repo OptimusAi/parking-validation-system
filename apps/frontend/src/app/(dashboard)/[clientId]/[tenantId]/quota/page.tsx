@@ -97,13 +97,13 @@ export default function QuotaPage() {
         ) : (
           <>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <QuotaCard title="Daily Quota" used={quota?.daily.used ?? 0} limit={quota?.daily.limit ?? 1} />
+              <QuotaCard title="Daily Quota" used={quota?.daily?.used ?? 0} limit={quota?.daily?.limit ?? 1} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <QuotaCard title="Weekly Quota" used={quota?.weekly.used ?? 0} limit={quota?.weekly.limit ?? 1} />
+              <QuotaCard title="Weekly Quota" used={quota?.weekly?.used ?? 0} limit={quota?.weekly?.limit ?? 1} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <QuotaCard title="Monthly Quota" used={quota?.monthly.used ?? 0} limit={quota?.monthly.limit ?? 1} />
+              <QuotaCard title="Monthly Quota" used={quota?.monthly?.used ?? 0} limit={quota?.monthly?.limit ?? 1} />
             </Grid>
           </>
         )}

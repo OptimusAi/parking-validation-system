@@ -72,6 +72,10 @@ public class ValidationLink {
     @Builder.Default
     private boolean isDeleted = false;
 
+    /** Populated by service layer — not persisted */
+    @Transient
+    private String zoneName;
+
     @PrePersist
     protected void prePersist() {
         Instant now = Instant.now();

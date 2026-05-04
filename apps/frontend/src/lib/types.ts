@@ -1,6 +1,6 @@
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
-export type Role = 'ADMIN' | 'CLIENT_ADMIN' | 'TENANT_ADMIN' | 'SUBTENANT_USER';
+export type Role = 'ADMIN' | 'CLIENT_ADMIN' | 'TENANT_ADMIN' | 'SUB_TENANT_ADMIN';
 
 export type SessionStatus = 'ACTIVE' | 'EXTENDED' | 'CANCELLED' | 'EXPIRED';
 export type LinkType = 'QR' | 'URL';
@@ -39,7 +39,9 @@ export interface Tenant {
   branding: TenantBranding;
   zones?: number;
   subTenants?: number;
+  isActive?: boolean;
   status?: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string;
 }
 
 export interface SubTenant {
@@ -78,13 +80,12 @@ export interface ValidationLink {
   id: string;
   tenantId: string;
   zoneId: string;
-  zoneName: string;
+  zoneName?: string;
   label?: string;
-  type: LinkType;
+  linkType: string;
   token: string;
-  url: string;
-  durationMinutes: number;
-  scans: number;
+  defaultDurationMinutes: number;
+  scanCount: number;
   expiresAt?: string;
   isActive: boolean;
   createdAt: string;

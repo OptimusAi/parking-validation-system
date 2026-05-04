@@ -87,8 +87,13 @@ export async function createLink(data: {
   expiresAt?: string;
 }): Promise<ValidationLink> {
   const { data: result } = await apiClient.post(`/api/v1/links`, {
-    ...data,
+    zoneId: data.zoneId,
+    linkType: data.type,
+    label: data.label,
+    defaultDurationMinutes: data.durationMinutes,
+    expiresAt: data.expiresAt,
     tenantId: tenantId(),
+    clientId: clientId(),
   });
   return result;
 }

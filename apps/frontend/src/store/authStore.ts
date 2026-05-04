@@ -89,7 +89,7 @@ function applyLoginResponse(data: LoginResponse): LoginResult {
   setAuthToken(data.tmsToken);
 
   const name = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.email;
-  const role = data.role as 'ADMIN' | 'CLIENT_ADMIN' | 'TENANT_ADMIN' | 'SUBTENANT_USER';
+  const role = data.role as 'ADMIN' | 'CLIENT_ADMIN' | 'TENANT_ADMIN' | 'SUB_TENANT_ADMIN';
   const assignedTenants: string[] = data.assignedTenants ?? [];
 
   useTenantStore.getState().setContext({

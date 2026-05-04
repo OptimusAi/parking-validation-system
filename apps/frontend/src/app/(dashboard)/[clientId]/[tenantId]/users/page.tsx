@@ -7,11 +7,11 @@ import {
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { useState } from 'react';
 import { mockApi } from '@/lib/api';
-import type { User, Role } from '@/lib/types';
+import type { User, Role, Tenant } from '@/lib/types';
 import { useTenantStore } from '@/store/tenantStore';
 import { PageHeader } from '@/components/common/PageHeader';
 
-const ALL_ROLES: Role[] = ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER'];
+const ALL_ROLES: Role[] = ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN'];
 
 export default function UsersPage() {
   const qc = useQueryClient();
@@ -23,6 +23,16 @@ export default function UsersPage() {
     queryFn: () => mockApi.getUsers(),
     enabled: role === 'ADMIN' || role === 'CLIENT_ADMIN',
   });
+
+  const { data: tenantsData } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: () => mockApi.getTenants(),
+    enabled: role === 'ADMIN' || role === 'CLIENT_ADMIN',
+  });
+  const tenantMap = new Map<string, string>(
+    (Array.isArray(tenantsData) ? tenantsData : (tenantsData as { content?: Tenant[] })?.content ?? [])
+      .map((t: Tenant) => [t.id, t.name])
+  );
 
   const roleMutation = useMutation({
     mutationFn: ({ id, newRole }: { id: string; newRole: Role }) => mockApi.updateUserRole(id, newRole),
@@ -53,7 +63,9 @@ export default function UsersPage() {
   };
 
   const columns: GridColDef<User>[] = [
-    { field: 'name', headerName: 'Name', flex: 1, minWidth: 140 },
+    { field: 'fullName', headerName: 'Name', flex: 1, minWidth: 140,
+      valueGetter: (_: unknown, row: User) => row.fullName ?? ([row.firstName, row.lastName].filter(Boolean).join(' ') || row.name || '—'),
+    },
     { field: 'email', headerName: 'Email', flex: 1, minWidth: 200 },
     {
       field: 'role', headerName: 'Role', width: 200,
@@ -76,7 +88,7 @@ export default function UsersPage() {
         </Select>
       ),
     },
-    { field: 'tenantName', headerName: 'Tenant', width: 160, valueGetter: (_, row) => row.tenantName ?? '—' },
+    { field: 'tenantId', headerName: 'Tenant', width: 160, valueGetter: (_: unknown, row: User) => (row.tenantId ? tenantMap.get(row.tenantId) : null) ?? '—' },
     {
       field: 'isActive', headerName: 'Active', width: 90,
       renderCell: ({ row }) => (

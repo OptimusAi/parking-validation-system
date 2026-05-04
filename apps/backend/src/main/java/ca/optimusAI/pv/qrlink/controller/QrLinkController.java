@@ -29,11 +29,13 @@ public class QrLinkController {
     // ── POST /api/v1/links ────────────────────────────────────────────────────
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN')")
     public ResponseEntity<ValidationLink> create(@Valid @RequestBody CreateRequest req) {
         ValidationLink link = qrLinkService.createLink(
                 new CreateLinkRequest(
                         req.zoneId(),
+                        req.tenantId(),
+                        req.clientId(),
                         req.linkType(),
                         req.label(),
                         req.defaultDurationMinutes(),
@@ -95,6 +97,8 @@ public class QrLinkController {
 
     public record CreateRequest(
             @NotNull(message = "zoneId is required") UUID zoneId,
+            UUID tenantId,
+            UUID clientId,
             String linkType,
             String label,
             Integer defaultDurationMinutes,

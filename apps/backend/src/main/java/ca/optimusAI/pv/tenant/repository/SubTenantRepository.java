@@ -19,6 +19,9 @@ public interface SubTenantRepository extends JpaRepository<SubTenant, UUID> {
     /** Used by ADMIN to list all sub-tenants under a specific tenant. */
     Page<SubTenant> findAllByTenantIdAndIsDeletedFalse(UUID tenantId, Pageable pageable);
 
+    /** Count sub-tenants for a tenant — used for tenant list enrichment. */
+    long countByTenantIdAndIsDeletedFalse(UUID tenantId);
+
     /** Report worker — fetches sub-tenants by IDs without Hibernate filter constraint. */
     List<SubTenant> findAllByIdIn(Collection<UUID> ids);
 }

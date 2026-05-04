@@ -93,7 +93,10 @@ export default function TenantsPage() {
       field: 'name', headerName: 'Name', flex: 1, minWidth: 180,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ bgcolor: row.branding?.primaryColor, width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}>
+          <Avatar
+            src={row.branding?.logoUrl || undefined}
+            sx={{ bgcolor: row.branding?.primaryColor ?? '#1B4F8A', width: 32, height: 32, fontSize: '0.75rem', fontWeight: 700 }}
+          >
             {row.name.slice(0, 2).toUpperCase()}
           </Avatar>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.name}</Typography>
@@ -103,8 +106,11 @@ export default function TenantsPage() {
     { field: 'zones', headerName: 'Zones', width: 80 },
     { field: 'subTenants', headerName: 'Sub-Tenants', width: 120 },
     {
-      field: 'status', headerName: 'Status', width: 100,
-      renderCell: ({ value }) => <Chip label={value} size="small" color={value === 'ACTIVE' ? 'success' : 'default'} />,
+      field: 'isActive', headerName: 'Status', width: 100,
+      renderCell: ({ row }) => {
+        const active = row.status ? row.status === 'ACTIVE' : row.isActive !== false;
+        return <Chip label={active ? 'ACTIVE' : 'INACTIVE'} size="small" color={active ? 'success' : 'default'} />;
+      },
     },
     {
       field: 'actions', headerName: '', width: 120, sortable: false,

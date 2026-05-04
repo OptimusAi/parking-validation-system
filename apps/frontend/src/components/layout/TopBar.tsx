@@ -29,7 +29,7 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   ADMIN: { label: 'Admin', color: '#D32F2F', bg: '#FFEBEE' },
   CLIENT_ADMIN: { label: 'Client Admin', color: '#1565C0', bg: '#E3F2FD' },
   TENANT_ADMIN: { label: 'Tenant Admin', color: '#2E7D32', bg: '#E8F5E9' },
-  SUBTENANT_USER: { label: 'Sub-Tenant', color: '#E65100', bg: '#FFF3E0' },
+  SUB_TENANT_ADMIN: { label: 'Sub-Tenant', color: '#E65100', bg: '#FFF3E0' },
 };
 
 interface TopBarProps {

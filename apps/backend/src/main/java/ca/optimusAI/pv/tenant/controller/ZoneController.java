@@ -22,7 +22,7 @@ public class ZoneController {
     private final ZoneService zoneService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUBTENANT_USER', 'VIEWER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN', 'VIEWER')")
     public ResponseEntity<PageResponse<Zone>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,

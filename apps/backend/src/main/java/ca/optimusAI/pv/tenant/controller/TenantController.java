@@ -3,6 +3,7 @@ package ca.optimusAI.pv.tenant.controller;
 import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.tenant.entity.Tenant;
 import ca.optimusAI.pv.tenant.entity.TenantBranding;
+import ca.optimusAI.pv.tenant.entity.TenantResponse;
 import ca.optimusAI.pv.tenant.service.TenantService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -25,10 +26,10 @@ public class TenantController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN')")
-    public ResponseEntity<PageResponse<Tenant>> list(
+    public ResponseEntity<PageResponse<TenantResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(tenantService.list(page, size));
+        return ResponseEntity.ok(tenantService.listEnriched(page, size));
     }
 
     @GetMapping("/{id}")

@@ -7,13 +7,17 @@ import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
 import ca.optimusAI.pv.tenant.entity.ClientAdminAssignment;
 import ca.optimusAI.pv.tenant.entity.Tenant;
 import ca.optimusAI.pv.tenant.entity.TenantBranding;
+import ca.optimusAI.pv.tenant.entity.TenantResponse;
 import ca.optimusAI.pv.tenant.repository.ClientAdminAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.SubTenantRepository;
 import ca.optimusAI.pv.tenant.repository.TenantRepository;
+import ca.optimusAI.pv.tenant.repository.ZoneRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,8 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final ClientAdminAssignmentRepository clientAdminAssignmentRepository;
+    private final ZoneRepository zoneRepository;
+    private final SubTenantRepository subTenantRepository;
     private final AwsS3Service awsS3Service;
     private final ObjectMapper objectMapper;
 
@@ -55,6 +61,38 @@ public class TenantService {
         }
         // TENANT_ADMIN — Hibernate filter already restricts to their tenantId
         return PageResponse.of(tenantRepository.findAllByIsDeletedFalse(pr));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TenantResponse> listEnriched(int page, int size) {
+        PageRequest pr = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Tenant> tenantPage;
+        if (TenantContext.hasRole("ADMIN")) {
+            tenantPage = tenantRepository.findAllByIsDeletedFalse(pr);
+        } else if (TenantContext.hasRole("CLIENT_ADMIN")) {
+            List<UUID> assigned = TenantContext.assignedTenants();
+            if (assigned.isEmpty()) {
+                UUID clientId = TenantContext.clientId();
+                if (clientId == null) throw new UnauthorizedTenantAccessException("No client assigned");
+                tenantPage = tenantRepository.findAllByClientIdAndIsDeletedFalse(clientId, pr);
+            } else {
+                tenantPage = tenantRepository.findAllByIdInAndIsDeletedFalse(assigned, pr);
+            }
+        } else {
+            tenantPage = tenantRepository.findAllByIsDeletedFalse(pr);
+        }
+        return PageResponse.of(tenantPage.map(this::toResponse));
+    }
+
+    private TenantResponse toResponse(Tenant t) {
+        long zones = zoneRepository.countByTenantIdAndIsDeletedFalse(t.getId());
+        long subs  = subTenantRepository.countByTenantIdAndIsDeletedFalse(t.getId());
+        TenantBranding b = extractBranding(t.getSettings());
+        return new TenantResponse(
+                t.getId(), t.getClientId(), t.getName(), t.isActive(),
+                zones, subs,
+                new TenantResponse.BrandingDto(b.logoUrl(), b.primaryColor(), b.accentColor()),
+                t.getCreatedAt());
     }
 
     @Transactional(readOnly = true)
@@ -159,7 +197,7 @@ public class TenantService {
 
         if (logoFile != null && !logoFile.isEmpty()) {
             String logoUrl = awsS3Service.uploadTenantLogo(tenantId, logoFile);
-            branding.put("logoUrl", logoUrl);
+            if (logoUrl != null) branding.put("logoUrl", logoUrl);
         }
         if (primaryColor != null) branding.put("primaryColor", primaryColor);
         if (accentColor != null)  branding.put("accentColor", accentColor);
