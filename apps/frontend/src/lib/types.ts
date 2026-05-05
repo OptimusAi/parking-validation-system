@@ -140,6 +140,14 @@ export interface QuotaUsage {
   bySubTenant: { subTenantId: string; name: string; count: number; quotaUsed: number }[];
 }
 
+export interface ZoneAllocation {
+  tenantId: string;
+  totalZones: number;
+  tenantDirect: number;
+  subTenant: number;
+  usedDirect: number;
+}
+
 // ─── API Response Wrappers ───────────────────────────────────────────────────
 
 export interface PageResponse<T> {

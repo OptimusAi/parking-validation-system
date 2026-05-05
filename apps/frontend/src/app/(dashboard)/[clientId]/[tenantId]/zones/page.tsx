@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -8,13 +9,14 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { Add, Edit, Delete } from '@mui/icons-material';
-import { mockApi } from '@/lib/api';
+import * as api from '@/lib/api';
 import type { Zone } from '@/lib/types';
 import { PageHeader } from '@/components/common/PageHeader';
 
 const EMPTY_FORM = { zoneNumber: '', name: '', defaultDurationMinutes: 60, maxDurationMinutes: 480 };
 
 export default function ZonesPage() {
+  const { clientId, tenantId } = useParams<{ clientId: string; tenantId: string }>();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editZone, setEditZone] = useState<Zone | null>(null);
@@ -22,23 +24,26 @@ export default function ZonesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [toast, setToast] = useState<{ msg: string; sev: 'success' | 'error' } | null>(null);
 
-  const { data: zones, isLoading } = useQuery({ queryKey: ['zones'], queryFn: mockApi.getZones });
+  const { data: zones, isLoading } = useQuery({
+    queryKey: ['zones', tenantId],
+    queryFn: () => api.getZones(),
+  });
 
   const createMutation = useMutation({
-    mutationFn: () => mockApi.createZone(form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones'] }); setDialogOpen(false); setForm(EMPTY_FORM); setToast({ msg: 'Zone created', sev: 'success' }); },
+    mutationFn: () => api.createZoneAdmin(tenantId, clientId, form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones', tenantId] }); setDialogOpen(false); setForm(EMPTY_FORM); setToast({ msg: 'Zone created', sev: 'success' }); },
     onError: () => setToast({ msg: 'Failed to create zone', sev: 'error' }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: () => mockApi.updateZone(editZone!.id, form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones'] }); setEditZone(null); setDialogOpen(false); setForm(EMPTY_FORM); setToast({ msg: 'Zone updated', sev: 'success' }); },
+    mutationFn: () => api.updateZone(editZone!.id, form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones', tenantId] }); setEditZone(null); setDialogOpen(false); setForm(EMPTY_FORM); setToast({ msg: 'Zone updated', sev: 'success' }); },
     onError: () => setToast({ msg: 'Failed to update zone', sev: 'error' }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => mockApi.deleteZone(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones'] }); setDeleteZone(null); setToast({ msg: 'Zone deleted', sev: 'success' }); },
+    mutationFn: (id: string) => api.deleteZone(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['zones', tenantId] }); setDeleteZone(null); setToast({ msg: 'Zone deleted', sev: 'success' }); },
     onError: (e: Error) => { setDeleteZone(null); setToast({ msg: e.message || 'Cannot delete zone', sev: 'error' }); },
   });
 

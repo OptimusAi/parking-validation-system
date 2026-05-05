@@ -5,20 +5,29 @@ import ca.optimusAI.pv.shared.TenantContext;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
 import ca.optimusAI.pv.tenant.entity.SubTenant;
+import ca.optimusAI.pv.tenant.entity.SubTenantZoneAssignment;
+import ca.optimusAI.pv.tenant.entity.Zone;
 import ca.optimusAI.pv.tenant.repository.SubTenantRepository;
+import ca.optimusAI.pv.tenant.repository.SubTenantZoneAssignmentRepository;
+import ca.optimusAI.pv.tenant.repository.ZoneRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SubTenantService {
 
     private final SubTenantRepository subTenantRepository;
+    private final SubTenantZoneAssignmentRepository assignmentRepository;
+    private final ZoneRepository zoneRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<SubTenant> list(int page, int size) {
@@ -78,5 +87,50 @@ public class SubTenantService {
         if (callerTenantId == null || !callerTenantId.equals(sub.getTenantId())) {
             throw new UnauthorizedTenantAccessException("Access denied to sub-tenant: " + sub.getId());
         }
+    }
+
+    // ── Zone assignment ───────────────────────────────────────────────────────
+
+    /** Returns the IDs of zones currently assigned to a sub-tenant. */
+    @Transactional(readOnly = true)
+    public List<UUID> getAssignedZoneIds(UUID subTenantId) {
+        return assignmentRepository.findBySubTenantId(subTenantId)
+                .stream().map(SubTenantZoneAssignment::getZoneId).collect(Collectors.toList());
+    }
+
+    /** Returns the full Zone objects assigned to a sub-tenant. */
+    @Transactional(readOnly = true)
+    public List<Zone> getAssignedZones(UUID subTenantId) {
+        List<UUID> zoneIds = getAssignedZoneIds(subTenantId);
+        if (zoneIds.isEmpty()) return List.of();
+        return zoneRepository.findAllById(zoneIds).stream()
+                .filter(z -> !z.isDeleted()).collect(Collectors.toList());
+    }
+
+    /**
+     * Replace the full zone assignment set for a sub-tenant.
+     * Passing an empty list removes all assignments.
+     */
+    @Transactional
+    public List<UUID> setAssignedZones(UUID subTenantId, List<UUID> zoneIds) {
+        SubTenant sub = get(subTenantId);
+        assertWriteAccess(sub);
+
+        // Remove all current assignments
+        assignmentRepository.deleteBySubTenantId(subTenantId);
+
+        // Add the new set
+        if (zoneIds != null && !zoneIds.isEmpty()) {
+            List<SubTenantZoneAssignment> assignments = zoneIds.stream()
+                    .distinct()
+                    .map(zoneId -> SubTenantZoneAssignment.builder()
+                            .subTenantId(subTenantId)
+                            .zoneId(zoneId)
+                            .build())
+                    .collect(Collectors.toList());
+            assignmentRepository.saveAll(assignments);
+        }
+
+        return getAssignedZoneIds(subTenantId);
     }
 }

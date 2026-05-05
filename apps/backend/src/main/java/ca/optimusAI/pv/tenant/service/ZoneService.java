@@ -2,10 +2,13 @@ package ca.optimusAI.pv.tenant.service;
 
 import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.shared.TenantContext;
+import ca.optimusAI.pv.shared.exception.QuotaExceededException;
 import ca.optimusAI.pv.shared.exception.ResourceNotFoundException;
 import ca.optimusAI.pv.shared.exception.UnauthorizedTenantAccessException;
 import ca.optimusAI.pv.shared.exception.ZoneHasActiveSessionsException;
 import ca.optimusAI.pv.tenant.entity.Zone;
+import ca.optimusAI.pv.tenant.entity.ZoneAllocation;
+import ca.optimusAI.pv.tenant.repository.ZoneAllocationRepository;
 import ca.optimusAI.pv.tenant.repository.ZoneRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +23,7 @@ import java.util.UUID;
 public class ZoneService {
 
     private final ZoneRepository zoneRepository;
+    private final ZoneAllocationRepository allocationRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<Zone> list(int page, int size) {
@@ -47,6 +51,16 @@ public class ZoneService {
         UUID resolvedClientId = clientId != null ? clientId : TenantContext.clientId();
         if (resolvedTenantId == null) throw new UnauthorizedTenantAccessException("tenantId required");
         if (resolvedClientId == null) throw new UnauthorizedTenantAccessException("clientId required");
+
+        // Enforce zone allocation limit (0 = unlimited)
+        ZoneAllocation alloc = allocationRepository.findByTenantId(resolvedTenantId).orElse(null);
+        if (alloc != null && alloc.getTenantDirect() > 0) {
+            long used = zoneRepository.countByTenantIdAndIsDeletedFalse(resolvedTenantId);
+            if (used >= alloc.getTenantDirect()) {
+                throw new QuotaExceededException(
+                        String.format("Zone limit reached: %d of %d direct zones used", used, alloc.getTenantDirect()));
+            }
+        }
 
         Zone zone = Zone.builder()
                 .tenantId(resolvedTenantId)

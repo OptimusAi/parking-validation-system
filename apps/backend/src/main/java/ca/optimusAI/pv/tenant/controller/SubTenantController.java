@@ -2,6 +2,7 @@ package ca.optimusAI.pv.tenant.controller;
 
 import ca.optimusAI.pv.shared.PageResponse;
 import ca.optimusAI.pv.tenant.entity.SubTenant;
+import ca.optimusAI.pv.tenant.entity.Zone;
 import ca.optimusAI.pv.tenant.service.SubTenantService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -66,4 +68,22 @@ public class SubTenantController {
     ) {}
 
     public record UpdateSubTenantRequest(String name) {}
+
+    // ── Zone assignments ───────────────────────────────────────────────
+
+    /** GET /api/v1/sub-tenants/{id}/zones — list zones assigned to this sub-tenant */
+    @GetMapping("/{id}/zones")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN', 'SUB_TENANT_ADMIN')")
+    public ResponseEntity<List<Zone>> getZones(@PathVariable UUID id) {
+        return ResponseEntity.ok(subTenantService.getAssignedZones(id));
+    }
+
+    /** PUT /api/v1/sub-tenants/{id}/zones — replace full assignment set */
+    @PutMapping("/{id}/zones")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN')")
+    public ResponseEntity<List<UUID>> setZones(
+            @PathVariable UUID id,
+            @RequestBody List<UUID> zoneIds) {
+        return ResponseEntity.ok(subTenantService.setAssignedZones(id, zoneIds));
+    }
 }

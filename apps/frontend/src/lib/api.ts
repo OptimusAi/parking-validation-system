@@ -8,6 +8,7 @@ import { apiClient } from './apiClient';
 import type {
   PageResponse, PageParams, ValidationSession, ValidationLink,
   ReportJob, AuditLog, User, Zone, Tenant, TenantBranding, QuotaUsage, SubTenant, Client,
+  ZoneAllocation,
 } from './types';
 import { useTenantStore } from '@/store/tenantStore';
 
@@ -239,6 +240,7 @@ export async function createZone(data: Omit<Zone, 'id' | 'activeSessions'>): Pro
   const { data: result } = await apiClient.post(`/api/v1/zones`, {
     ...data,
     tenantId: tenantId(),
+    clientId: clientId(),
   });
   return result;
 }
@@ -337,6 +339,16 @@ export async function updateSubTenant(id: string, data: Partial<SubTenant>): Pro
   return result;
 }
 
+export async function getSubTenantZones(subTenantId: string): Promise<Zone[]> {
+  const { data } = await apiClient.get(`/api/v1/sub-tenants/${subTenantId}/zones`);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function setSubTenantZones(subTenantId: string, zoneIds: string[]): Promise<string[]> {
+  const { data } = await apiClient.put(`/api/v1/sub-tenants/${subTenantId}/zones`, zoneIds);
+  return data;
+}
+
 // ─── Named export object (drop-in replacement for mockApi) ───────────────────
 
 export const api = {
@@ -373,9 +385,48 @@ export const api = {
   getSubTenants,
   createSubTenant,
   updateSubTenant,
+  getSubTenantZones,
+  setSubTenantZones,
   listClients,
   createClient,
 };
+
+// ─── Zone Allocations ─────────────────────────────────────────────────────────
+
+export async function getZoneAllocation(tid: string): Promise<ZoneAllocation> {
+  const { data } = await apiClient.get(`/api/v1/zone-allocations`, {
+    params: { tenantId: tid },
+  });
+  return data;
+}
+
+export async function setZoneAllocationTotal(
+  tid: string,
+  cid: string,
+  totalZones: number,
+): Promise<ZoneAllocation> {
+  const { data } = await apiClient.put(`/api/v1/zone-allocations/total`, {
+    tenantId: tid,
+    clientId: cid,
+    totalZones,
+  });
+  return data;
+}
+
+export async function setZoneAllocationSplit(
+  tid: string,
+  cid: string,
+  tenantDirect: number,
+  subTenant: number,
+): Promise<ZoneAllocation> {
+  const { data } = await apiClient.put(`/api/v1/zone-allocations/split`, {
+    tenantId: tid,
+    clientId: cid,
+    tenantDirect,
+    subTenant,
+  });
+  return data;
+}
 
 /** Alias kept for backward-compatibility with pages that import { mockApi } */
 export const mockApi = api;
