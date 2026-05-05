@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { useTheme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 import {
   Box, Grid, Card, CardContent, Typography, Skeleton, Paper,
 } from '@mui/material';
@@ -36,7 +38,7 @@ function MetricCard({ title, value, icon: Icon, color, bg, subtitle }: MetricCar
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }} gutterBottom>
               {title}
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700 }} color="text.primary">
+            <Typography sx={{ fontWeight: 700, fontSize: '1.875rem', lineHeight: 1.1 }} color="text.primary">
               {value}
             </Typography>
             {subtitle && (
@@ -57,19 +59,36 @@ function MetricCard({ title, value, icon: Icon, color, bg, subtitle }: MetricCar
 export default function DashboardPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const branding = useTenantStore((s) => s.branding);
+  const theme = useTheme();
 
   const { data: quota, isLoading } = useQuery({
     queryKey: ['quota', tenantId],
     queryFn: () => mockApi.getQuotaUsage(tenantId),
   });
 
-  const barData: { date: string; count: number }[] = [];
-  const lineData: { date: string; count: number }[] = [];
+  const barData = useMemo(() => [
+    { date: 'Mon', 'Ground Floor': 28, 'Upper Level': 15, Rooftop: 7  },
+    { date: 'Tue', 'Ground Floor': 35, 'Upper Level': 19, Rooftop: 9  },
+    { date: 'Wed', 'Ground Floor': 22, 'Upper Level': 12, Rooftop: 5  },
+    { date: 'Thu', 'Ground Floor': 41, 'Upper Level': 22, Rooftop: 14 },
+    { date: 'Fri', 'Ground Floor': 38, 'Upper Level': 24, Rooftop: 12 },
+    { date: 'Sat', 'Ground Floor': 18, 'Upper Level': 10, Rooftop: 4  },
+    { date: 'Sun', 'Ground Floor': 14, 'Upper Level': 8,  Rooftop: 3  },
+  ], []);
+
+  const lineData = useMemo(() =>
+    [42,38,45,52,48,35,28,55,61,49,44,58,63,51,40,47,53,59,42,36,48,65,58,43,50,56,44,38,61,47]
+      .map((validations, i) => ({ date: `${i + 1}`, validations })),
+  []);
 
   const quotaPct = quota?.daily?.limit
     ? Math.round((quota.daily.used / quota.daily.limit) * 100)
     : 0;
-  const quotaColor = quotaPct >= 90 ? '#D32F2F' : quotaPct >= 70 ? '#ED6C02' : '#2E7D32';
+  const quotaColor = quotaPct >= 90
+    ? theme.palette.error.main
+    : quotaPct >= 70
+    ? theme.palette.warning.main
+    : theme.palette.success.main;
 
   return (
     <Box>
@@ -85,8 +104,8 @@ export default function DashboardPage() {
               title="Validations Today"
               value={42}
               icon={DirectionsCar}
-              color="#1565C0"
-              bg="#E3F2FD"
+              color={theme.palette.info.main}
+              bg={alpha(theme.palette.info.main, 0.12)}
             />
           )}
         </Grid>
@@ -98,8 +117,8 @@ export default function DashboardPage() {
               title="Active Sessions"
               value={18}
               icon={CheckCircle}
-              color="#2E7D32"
-              bg="#E8F5E9"
+              color={theme.palette.success.main}
+              bg={alpha(theme.palette.success.main, 0.12)}
             />
           )}
         </Grid>
@@ -111,8 +130,8 @@ export default function DashboardPage() {
               title="This Month"
               value={387}
               icon={CalendarMonth}
-              color="#E65100"
-              bg="#FFF3E0"
+              color={theme.palette.warning.main}
+              bg={alpha(theme.palette.warning.main, 0.12)}
             />
           )}
         </Grid>
@@ -125,7 +144,7 @@ export default function DashboardPage() {
               value={`${quotaPct}%`}
               icon={Speed}
               color={quotaColor}
-              bg={`${quotaColor}18`}
+              bg={alpha(quotaColor, 0.12)}
               subtitle={`${quota?.daily?.used ?? 0} of ${quota?.daily?.limit ?? 0} daily`}
             />
           )}
@@ -142,9 +161,9 @@ export default function DashboardPage() {
             <Box sx={{ height: 280, mt: 2 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData} margin={{ top: 4, right: 16, left: -16, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                  <YAxis tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="Ground Floor" stackId="a" fill={branding.primaryColor} radius={[0, 0, 0, 0]} />
@@ -170,9 +189,9 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor={branding.primaryColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={6} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: theme.palette.text.secondary }} interval={6} />
+                  <YAxis tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <Tooltip />
                   <Area
                     type="monotone"

@@ -59,8 +59,8 @@ export default function LoginPage() {
     return (
       <Box sx={pageStyle}>
         <Box sx={jumbotronStyle}>
-          <CircularProgress size={44} sx={{ color: '#2E7D6B' }} />
-          <Typography variant="body1" sx={{ mt: 2, color: '#555' }}>
+          <CircularProgress size={44} color="primary" />
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
             Signing you in…
           </Typography>
         </Box>
@@ -72,21 +72,21 @@ export default function LoginPage() {
     <Box sx={pageStyle}>
       <Box sx={jumbotronStyle}>
 
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 2, textAlign: 'center' }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, textAlign: 'center' }} color="text.primary">
           Parking Validation System
         </Typography>
 
         <Box sx={{ mb: 3 }}>
           <Box sx={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 80, height: 80, borderRadius: '20px', bgcolor: '#1B4F8A',
-            boxShadow: '0 4px 20px rgba(27,79,138,0.25)',
+            width: 80, height: 80, borderRadius: '20px', bgcolor: 'primary.main',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           }}>
             <LocalParking sx={{ fontSize: 48, color: 'white' }} />
           </Box>
         </Box>
 
-        <Typography variant="body1" sx={{ color: '#555', mb: 1, textAlign: 'center', maxWidth: 560 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 1, textAlign: 'center', maxWidth: 560 }}>
           Welcome to the Parking Validation Management System.
           Please click the &ldquo;Welcome&rdquo; button to sign in to your account.
         </Typography>
@@ -100,17 +100,15 @@ export default function LoginPage() {
         <Box sx={{ mt: 3 }}>
           <Button
             variant="contained"
+            color="primary"
             size="large"
             onClick={() => { window.location.href = buildOAuthUrl(); }}
             sx={{
-              bgcolor: '#2E7D6B',
-              '&:hover': { bgcolor: '#245f54' },
               px: 6,
               py: 1.5,
               fontSize: '1.1rem',
               fontWeight: 600,
-              borderRadius: '6px',
-              boxShadow: '0 3px 12px rgba(46,125,107,0.35)',
+              borderRadius: '10px',
             }}
           >
             Welcome
@@ -124,7 +122,7 @@ export default function LoginPage() {
 
 const pageStyle = {
   minHeight: '100vh',
-  bgcolor: '#e8e8e8',
+  bgcolor: 'background.default',
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'center',
@@ -133,11 +131,12 @@ const pageStyle = {
 
 const jumbotronStyle = {
   width: '100%',
-  bgcolor: '#f0f0f0',
+  bgcolor: 'background.paper',
   py: 6,
   px: 4,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  borderBottom: '1px solid',
+  borderColor: 'divider',
 };

@@ -10,6 +10,7 @@ interface TenantState {
   subTenantId: string | null;
   role: Role | null;
   branding: TenantBranding;
+  colorMode: 'light' | 'dark';
   // Actions
   setContext: (ctx: {
     email: string;
@@ -22,6 +23,7 @@ interface TenantState {
   clearContext: () => void;
   setBranding: (branding: TenantBranding) => void;
   switchTenant: (tenantId: string, clientId?: string | null, branding?: TenantBranding) => void;
+  toggleColorMode: () => void;
   // Computed helpers
   isAdmin: () => boolean;
   isClientAdmin: () => boolean;
@@ -44,6 +46,7 @@ export const useTenantStore = create<TenantState>()(
       subTenantId: null,
       role: null,
       branding: DEFAULT_BRANDING,
+      colorMode: 'dark' as const,
 
       setContext: (ctx) =>
         set({
@@ -70,6 +73,9 @@ export const useTenantStore = create<TenantState>()(
 
       switchTenant: (tenantId, clientId, branding) =>
         set((s) => ({ tenantId, clientId: clientId ?? s.clientId, branding: branding ?? DEFAULT_BRANDING })),
+
+      toggleColorMode: () =>
+        set((s) => ({ colorMode: s.colorMode === 'dark' ? 'light' : 'dark' })),
 
       isAdmin: () => get().role === 'ADMIN',
       isClientAdmin: () => get().role === 'CLIENT_ADMIN',
