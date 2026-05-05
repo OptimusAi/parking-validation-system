@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import {
   Dashboard, DirectionsCar, QrCode2, LocationOn, Business,
-  Assessment, PieChart, History, Palette, People, Logout,
+  Assessment, PieChart, History, People, Logout,
   Apartment, AdminPanelSettings, LocalParking,
   ChevronLeft, ChevronRight,
 } from '@mui/icons-material';
@@ -40,7 +40,6 @@ function buildNavItems(clientId: string | null, tenantId: string | null): NavIte
     { label: 'Reports',     href: clientId ? `/${clientId}/${tenantId}/reports`           : '#', icon: Assessment,    roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'],                     section: 'ANALYTICS'  },
     { label: 'Quota',       href: clientId ? `/${clientId}/${tenantId}/quota`             : '#', icon: PieChart,      roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'],                     section: 'ANALYTICS'  },
     { label: 'Audit Logs',  href: clientId ? `/${clientId}/${tenantId}/audit-logs`        : '#', icon: History,       roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'],                     section: 'ANALYTICS'  },
-    { label: 'Branding',    href: clientId ? `/${clientId}/${tenantId}/settings/branding` : '#', icon: Palette,       roles: ['ADMIN', 'CLIENT_ADMIN', 'TENANT_ADMIN'],                     section: 'SETTINGS'   },
     { label: 'Users',       href: clientId ? `/${clientId}/${tenantId}/users`             : '#', icon: People,        roles: ['ADMIN', 'CLIENT_ADMIN'],                                     section: 'SETTINGS'   },
   ] : [];
   return [

@@ -54,7 +54,9 @@ export default function AdminClientsPage() {
     {
       field: 'name', headerName: 'Name', flex: 1, minWidth: 200,
       renderCell: ({ value }) => (
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>{value}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', width: '100%' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{value}</Typography>
+        </Box>
       ),
     },
     {
@@ -76,12 +78,6 @@ export default function AdminClientsPage() {
     {
       field: 'createdAt', headerName: 'Created', width: 180,
       valueFormatter: (value: string) => value ? new Date(value).toLocaleDateString() : '—',
-    },
-    {
-      field: 'id', headerName: 'ID', width: 300,
-      renderCell: ({ value }) => (
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{value}</Typography>
-      ),
     },
   ];
 

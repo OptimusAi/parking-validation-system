@@ -6,10 +6,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Paper, Select, Snackbar, Alert, Button, Typography,
-  InputLabel, FormControl, Switch, FormControlLabel, CircularProgress,
+  InputLabel, FormControl, Switch, FormControlLabel, CircularProgress, IconButton, Tooltip,
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import { Edit } from '@mui/icons-material';
+import { EditOutlined } from '@mui/icons-material';
 import { mockApi, getTenantsForClient, listClients } from '@/lib/api';
 import type { User, Role, Client, Tenant } from '@/lib/types';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -158,11 +158,15 @@ export default function AdminUsersPage() {
       valueGetter: (_, row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—',
     },
     {
-      field: 'actions', headerName: '', width: 80, sortable: false,
+      field: 'actions', headerName: '', width: 56, sortable: false, align: 'right',
       renderCell: ({ row }) => (
-        <Button size="small" startIcon={<Edit sx={{ fontSize: 14 }} />} onClick={() => openEdit(row)}>
-          Edit
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', width: '100%', pr: 0.5 }}>
+          <Tooltip title="Edit user">
+            <IconButton size="small" onClick={() => openEdit(row)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}>
+              <EditOutlined sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];
